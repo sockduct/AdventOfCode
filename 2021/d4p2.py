@@ -106,13 +106,27 @@ def main():
                 buffer.clear()
 
     counter = 0
+    boards_left = len(boards)
+    purge = []
     for num in drawn_numbers:
         counter += 1
-        for board in boards:
+        purge.sort(reverse=True)
+        for target in purge:
+            boards.pop(target)
+        purge.clear()
+        for index, board in enumerate(boards):
+            board = boards[index]
             board.drawn(num)
+            '''
+            if counter >= 5:
+                print(f'Number drawn:  {num}\nBoard:\n{board}')
+            '''
             if counter >= 5 and board.is_bingo():
-                print(f'Winning Board:\n{board}\nScore:  {board.count() * num}')
-                return
+                boards_left -= 1
+                purge.append(index)
+                if boards_left == 0:
+                    print(f'Winning Board:\n{board}\nScore:  {board.count() * num}')
+                    return
 
 if __name__ == '__main__':
     main()
