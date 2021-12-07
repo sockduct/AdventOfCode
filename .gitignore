@@ -1,0 +1,10 @@
+# Python Cache/Compiled files
+__pycache__/*
+*.pyc
+
+# Vim Temp Files
+*.swp
+
+# VSCode config directories
+.vscode/
+
