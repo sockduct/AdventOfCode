@@ -3,8 +3,8 @@
 from collections.abc import Iterable
 
 
-INFILE = 'd5p1t1.txt'
-# INFILE = 'd5p1.txt'
+# INFILE = 'd5p1t1.txt'
+INFILE = 'd5p1.txt'
 
 class Line():
     def __init__(self, x1=0, y1=0, x2=0, y2=0, *, points=None):
@@ -49,7 +49,8 @@ class Matrix():
     def __init__(self, rows, cols):
         self.rows = rows
         self.cols = cols
-        self.grid = ['.'] * (rows * cols)
+        # self.grid = ['.'] * (rows * cols)
+        self.grid = [0] * (rows * cols)
 
     def __repr__(self):
         return f'<Matrix({self.rows} X {self.cols})>'
@@ -58,6 +59,8 @@ class Matrix():
         col = 0
         matrix = ''
         for elmt in self.grid:
+            if elmt == 0:
+                elmt = '.'
             matrix += str(elmt)
             col += 1
             if col == self.cols:
@@ -65,14 +68,33 @@ class Matrix():
                 col = 0
         return f'{matrix}'
 
+    def geval(self, val):
+        'Find number of points greater than or equal to val'
+        return sum(num >= val for num in self.grid)
+
     def inc(self, x, y):
+        'Increment point (x, y) - e.g., 0 -> 1 -> 2 -> ...'
         point = (self.rows * y) + x
+        '''
         if self.grid[point] == '.':
-            self.grid[point] = 0
+            self.grid[point] = 1
         else:
             self.grid[point] += 1
+        '''
+        self.grid[point] += 1
 
-def main():
+def test_matrix(matrix, lines):
+    for line in lines:
+        status = line.ishor() or line.isver()
+        print(f'{line}, horizontal or vertical? {status}')
+
+    for i in range(matrix.rows):
+        matrix.inc(i, i)
+    for i in range(matrix.rows):
+        matrix.inc(i, i)
+    print(matrix)
+
+def main(verbose=False):
     lines = []
 
     with open(INFILE) as ifile:
@@ -80,19 +102,33 @@ def main():
             res = [pair.split(',') for pair in line.split('->')]
             lines.append(Line(points=res))
 
-    maxx = max(line.maxx() for line in lines)
-    maxy = max(line.maxy() for line in lines)
+    maxx = max(line.maxx() for line in lines) + 1
+    maxy = max(line.maxy() for line in lines) + 1
     matrix = Matrix(maxx, maxy)
 
-    for line in lines:
-        status = line.ishor() or line.isver()
-        print(f'{line}, horizontal or vertical? {status}')
+    # test_matrix(matrix, lines)
 
-    for i in range(maxx):
-        matrix.inc(i, i)
-    for i in range(maxx):
-        matrix.inc(i, i)
-    print(matrix)
+    for line in lines:
+        if line.ishor():
+            if verbose:
+                print(f'Processing horiztonal line {line}')
+            x1, x2 = (line.x1, line.x2) if line.x2 >= line.x1 else (line.x2, line.x1)
+            for pos in range(x1, x2 + 1):
+                matrix.inc(pos, line.y1)
+        elif line.isver():
+            if verbose:
+                print(f'Processing vertical line {line}')
+            y1, y2 = (line.y1, line.y2) if line.y2 >= line.y1 else (line.y2, line.y1)
+            for pos in range(y1, y2 + 1):
+                matrix.inc(line.x1, pos)
+        else:
+            if verbose:
+                print(f'Skipping {line}...')
+
+    print('Result:')
+    if verbose:
+        print(matrix)
+    print(f'Points of 2 or more intersecting lines:  {matrix.geval(2)}')
 
 if __name__ == '__main__':
     main()
