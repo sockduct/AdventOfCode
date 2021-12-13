@@ -26,17 +26,21 @@ class LatternFish():
 
 def main(verbose=False):
     with open(INFILE) as ifile:
-        fish_ages = [int(age) for age in ifile.read().strip().split(',')]
+        fish_ages = ''.join(ifile.read().strip().split(','))
 
-    fish = [LatternFish(fish_age) for fish_age in fish_ages]
+    # fish = [LatternFish(fish_age) for fish_age in fish_ages]
 
-    DAYS = 80
+    DAYS = 18
+    # DAYS = 80
     # Doesn't work for large numbers because this is a quadratic algorithm:
     # DAYS = 256
+    new_fish = 0
     for day in range(DAYS + 1):
         if day == 0:
-            print(f'Initial state:  {", ".join(map(str, fish))}')
+            # print(f'Initial state:  {", ".join(map(str, fish))}')
+            print(f'Initial state:  {fish_ages}')
         else:
+            '''
             new_fish = sum(lf.inc() for lf in fish)
             for _ in range(new_fish):
                 fish.append(LatternFish())
@@ -49,8 +53,21 @@ def main(verbose=False):
                 print(f'{day}', end='', flush=True)
             else:
                 print('.', end='', flush=True)
+            '''
+            if new_fish:
+                fish_ages += '9' * new_fish
+            diff_num = '1' * len(fish_ages)
+            fish_ages = str(int(fish_ages) - int(diff_num))
+            zeroes = fish_ages.count('0')
+            if zeroes:
+                fish_ages = fish_ages.replace('0', '7')
+                new_fish = zeroes
 
-    print(f'Lattern Fish Total:  {len(fish)}')
+            daystr = 'days' if day > 1 else 'day'
+            print(f'After {day:2} {daystr:4}:  {fish_ages}')
+
+    # print(f'Lattern Fish Total:  {len(fish)}')
+    print(f'Lattern Fish Total:  {len(fish_ages)}')
 
 if __name__ == '__main__':
     main()
