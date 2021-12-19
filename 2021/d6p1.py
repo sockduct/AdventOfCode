@@ -1,7 +1,7 @@
 #! /usr/bin/env python3.10
 
-# INFILE = 'd6p1t1.txt'
-INFILE = 'd6p1.txt'
+INFILE = 'd6p1t1.txt'
+# INFILE = 'd6p1.txt'
 
 class LatternFish():
     DEFAULT_NEW_AGE = 8
@@ -31,9 +31,9 @@ def main(verbose=False):
     fish = [LatternFish(fish_age) for fish_age in fish_ages]
 
     # DAYS = 18
-    # DAYS = 80
+    DAYS = 80
     # Doesn't work for large numbers because this is a quadratic algorithm:
-    DAYS = 256
+    # DAYS = 256
     for day in range(DAYS + 1):
         if day == 0:
             print(f'Initial state:  {", ".join(map(str, fish))}')
