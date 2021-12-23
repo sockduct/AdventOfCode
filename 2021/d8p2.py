@@ -80,6 +80,9 @@ class SegmentDisplay():
     segment_map = {2: '1', 3: '7', 4: '4', 5: '235', 6: '069', 7: '8'}
     digit_map = {0: 'abcefg', 1: 'cf', 2: 'acdeg', 3: 'acdfg', 4: 'bcdf',
                  5: 'abdfg', 6: 'abdefg', 7: 'acf', 8: 'abcdefg', 9: 'abcdfg'}
+    # Note to self - cannot access class-level variables from comprehensions at class-level!!!
+    # The comprehension has its own scope, and it can only access that or module scope
+    # sequences = [(k, list(digit_map[v])) for k, v in [(2, 1), (3, 7), (4, 4), (7, 8)]]
 
     def __init__(self, signals, display):
         self.signals = signals
@@ -90,26 +93,46 @@ class SegmentDisplay():
             self.segments[len(signal)].append(signal)
 
         self.output = {k: '' for k in 'abcdefg'}
+        self.allocated = ''
+        self.backtrack = 2
+        self.sequences = [(k, list(self.digit_map[v])) for k, v in [(2, 1), (3, 7), (4, 4), (7, 8)]]
 
+        #while True:
         self.map_outputs()
+        #    if self.validate_outputs():
         self.validate_outputs()
+        #        break
 
     def __repr__(self):
         return f'<SegmentDisplay([{self.signals[0]}, ...] => {self.display})>'
 
     def map_outputs(self):
         # Map outputs based on digits 1, 7, 4, and 8 have unique segment count:
-        sequences = [(k, list(self.digit_map[v])) for k, v in [(2, 1), (3, 7), (4, 4), (7, 8)]]
-        allocated = ''
-        for i, seq in sequences:
+        if self.allocated != '':
+            self.allocated, remove = (self.allocated[:-self.backtrack],
+                                      self.allocated[-self.backtrack:])
+            while remove:
+                target = remove[-1]
+                for key, value in self.output.items():
+                    if target == value[0]:
+                        self.output[key] = value[1:]
+                        break
+                remove = remove[:-1]
+
+                ### Good, but need to save lists somewhere else so can iterate
+                ### through loop and find unused started value (position 0 in
+                ### loop)
+
+            self.backtrack += 1
+        for i, seq in self.sequences:
             for signal in self.segments[i][0]:
                 if self.output[signal] == '':
-                    while seq[0] in allocated:
+                    while seq[0] in self.allocated:
                         seq = self.rotate(seq)
                     self.output[signal] = seq[:]
-                    allocated += seq[0]
-                    # seq = self.rotate(seq)
-            print(f'{self.segment_map[i]}=>{", ".join(self.output[j][0] for j in self.segments[i][0])}')
+                    self.allocated += seq[0]
+            # print(f'{self.segment_map[i]}=>'
+            #       f'{", ".join(self.output[j][0] for j in self.segments[i][0])}')
 
     def validate_outputs(self):
         status = []
@@ -117,8 +140,12 @@ class SegmentDisplay():
             all_segments = [self.output[an_output][0] for an_output in signal]
             res = ''.join(sorted(all_segments)) in self.digit_map.values()
             status.append(res)
-            print(f'{signal} => {all_segments},  valid_digit={res}')
-        print(f'All digits valid:  {all(status)}')
+            print(f'{signal:>7} => {str(all_segments):<35} => valid_digit={res}')
+
+        res = all(status)
+        print(f'All digits valid:  {res}')
+
+        return res
 
     def rotate(self, seq):
         return seq[1:] + seq[:1]
