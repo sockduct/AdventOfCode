@@ -77,12 +77,14 @@ INFILE = 'd8p1t1.txt'
 # INFILE = 'd8p1.txt'
 
 class SegmentDisplay():
-    segment_map = {2: '1', 3: '7', 4: '4', 5: '235', 6: '069', 7: '8'}
-    digit_map = {0: 'abcefg', 1: 'cf', 2: 'acdeg', 3: 'acdfg', 4: 'bcdf',
-                 5: 'abdfg', 6: 'abdefg', 7: 'acf', 8: 'abcdefg', 9: 'abcdfg'}
+    segment_count = {2: '1', 3: '7', 4: '4', 5: '235', 6: '069', 7: '8'}
+    digit2segments = {0: 'abcefg', 1: 'cf', 2: 'acdeg', 3: 'acdfg', 4: 'bcdf',
+                      5: 'abdfg', 6: 'abdefg', 7: 'acf', 8: 'abcdefg', 9: 'abcdfg'}
+    segments2digit = dict(abcefg=0, cf=1, acdeg=2, acdfg=3, bcdf=4,
+                          abdfg=5, abdefg=6, acf=7, abcdefg=8, abcdfg=9)
     # Note to self - cannot access class-level variables from comprehensions at class-level!!!
     # The comprehension has its own scope, and it can only access that or module scope
-    # sequences = [(k, list(digit_map[v])) for k, v in [(2, 1), (3, 7), (4, 4), (7, 8)]]
+    # sequences = [(k, list(digit2segments[v])) for k, v in [(2, 1), (3, 7), (4, 4), (7, 8)]]
 
     def __init__(self, signals, display):
         self.signals = signals
@@ -92,53 +94,89 @@ class SegmentDisplay():
         for signal in self.signals:
             self.segments[len(signal)].append(signal)
 
+        # Signal output to segment mapping:
         self.output = {k: '' for k in 'abcdefg'}
         self.allocated = ''
         self.backtrack = 2
-        self.sequences = [(k, list(self.digit_map[v])) for k, v in [(2, 1), (3, 7), (4, 4), (7, 8)]]
+        self.sequences = [(k, list(self.digit2segments[v])) for k, v in [(2, 1), (3, 7), (4, 4), (7, 8)]]
 
-        #while True:
-        self.map_outputs()
-        #    if self.validate_outputs():
-        self.validate_outputs()
-        #        break
+        while True:
+            self.map_outputs()
+            if self.validate_outputs():
+                break
+
+        self.signals2digits = self.map_signals2digits()
 
     def __repr__(self):
         return f'<SegmentDisplay([{self.signals[0]}, ...] => {self.display})>'
 
+    def __str__(self):
+        return ''.join(str(self.signals2digits[''.join(sorted(number))])
+                    for number in self.display)
+
     def map_outputs(self):
         # Map outputs based on digits 1, 7, 4, and 8 have unique segment count:
-        if self.allocated != '':
+        if self.allocated == '':
+            for i, seq in self.sequences:
+                for signal in self.segments[i][0]:
+                    if self.output[signal] == '':
+                        while seq[0] in self.allocated:
+                            seq = self.rotate(seq)
+                        self.output[signal] = seq[:]
+                        self.allocated += seq[0]
+        else:
             self.allocated, remove = (self.allocated[:-self.backtrack],
                                       self.allocated[-self.backtrack:])
+            outputs2map = []
+            # Removes leading list entry (option) for output:
             while remove:
                 target = remove[-1]
                 for key, value in self.output.items():
                     if target == value[0]:
                         self.output[key] = value[1:]
+                        outputs2map.append(key)
                         break
                 remove = remove[:-1]
 
-                ### Good, but need to save lists somewhere else so can iterate
-                ### through loop and find unused started value (position 0 in
-                ### loop)
-
             self.backtrack += 1
-        for i, seq in self.sequences:
-            for signal in self.segments[i][0]:
-                if self.output[signal] == '':
-                    while seq[0] in self.allocated:
-                        seq = self.rotate(seq)
-                    self.output[signal] = seq[:]
-                    self.allocated += seq[0]
-            # print(f'{self.segment_map[i]}=>'
-            #       f'{", ".join(self.output[j][0] for j in self.segments[i][0])}')
+
+            # Rotate through output lists with item removed above to find valid
+            # possibility.  Can't put in above loop because must remove all
+            # outputs to allow all new permutations.
+            while outputs2map:
+                target = outputs2map.pop()
+                while self.output[target][0] in self.allocated:
+                    self.output[target] = self.rotate(self.output[target])
+
+                self.allocated += self.output[target][0]
+
+    def map_signals2digits(self):
+        res = {
+            signal: ''.join(self.output[digit][0] for digit in signal)
+                for signal in self.signals
+        }
+
+        return {
+            ''.join(sorted(k)): self.segments2digit[''.join(sorted(v))]
+                for k, v in res.items()
+        }
+
+    def show(self):
+        output = 'Signals to digits:  '
+        for i, dict_tuple in enumerate(self.signals2digits.items()):
+            k, v = dict_tuple
+            output += f'{k}=>{v}, '
+            if i == 4:
+                output += '\n                    '
+
+        output += f'   Display:  {self}'
+        print(output)
 
     def validate_outputs(self):
         status = []
         for signal in self.signals:
             all_segments = [self.output[an_output][0] for an_output in signal]
-            res = ''.join(sorted(all_segments)) in self.digit_map.values()
+            res = ''.join(sorted(all_segments)) in self.digit2segments.values()
             status.append(res)
             print(f'{signal:>7} => {str(all_segments):<35} => valid_digit={res}')
 
@@ -160,9 +198,8 @@ def test_case():
 
 
 def main():
-    test_case()
+    # test_case()
 
-    '''
     with open(INFILE) as infile:
         segment_displays = []
 
@@ -174,8 +211,7 @@ def main():
             segment_displays.append(SegmentDisplay(signals, display))
 
     for segment_display in segment_displays:
-        signals = segment_display.signals
-    '''
+        segment_display.show()
 
     '''
     segments = {2, 3, 4, 7}
