@@ -101,7 +101,12 @@ class SegmentDisplay():
         self.sequences = [(k, list(self.digit2segments[v])) for k, v in [(2, 1), (3, 7), (4, 4), (7, 8)]]
 
         while True:
-            self.map_outputs()
+            if not self.map_outputs():
+                self.mapped_outputs = False
+                continue
+            else:
+                self.mapped_outputs = True
+
             if self.validate_outputs():
                 break
 
@@ -115,6 +120,10 @@ class SegmentDisplay():
                     for number in self.display)
 
     def map_outputs(self):
+        ###
+        # Wrong approach, start with output 1, item 1 then pick all other output
+        # items.  If fails, then output 1, item 2, ...
+        ###
         # Map outputs based on digits 1, 7, 4, and 8 have unique segment count:
         if self.allocated == '':
             for i, seq in self.sequences:
@@ -125,15 +134,17 @@ class SegmentDisplay():
                         self.output[signal] = seq[:]
                         self.allocated += seq[0]
         else:
-            self.allocated, remove = (self.allocated[:-self.backtrack],
-                                      self.allocated[-self.backtrack:])
+            allocated = self.allocated
+            allocated, remove = (allocated[:-self.backtrack],
+                                 allocated[-self.backtrack:])
             outputs2map = []
             # Removes leading list entry (option) for output:
             while remove:
                 target = remove[-1]
                 for key, value in self.output.items():
                     if target == value[0]:
-                        self.output[key] = value[1:]
+                        if self.mapped_outputs:
+                            self.output[key] = value[1:]
                         outputs2map.append(key)
                         break
                 remove = remove[:-1]
@@ -145,10 +156,22 @@ class SegmentDisplay():
             # outputs to allow all new permutations.
             while outputs2map:
                 target = outputs2map.pop()
-                while self.output[target][0] in self.allocated:
+                # Sometimes there's no valid possibility and we need to abort
+                # and start over with this function - if loop more than 7 times,
+                # bail:
+                counter = 0
+                while self.output[target][0] in allocated:
                     self.output[target] = self.rotate(self.output[target])
+                    counter +=1
+                    if counter >= 7:
+                        return False
 
-                self.allocated += self.output[target][0]
+                allocated += self.output[target][0]
+
+            # Found valid combination - update allocated:
+            self.allocated = allocated
+
+        return True
 
     def map_signals2digits(self):
         res = {
@@ -169,7 +192,14 @@ class SegmentDisplay():
             if i == 4:
                 output += '\n                    '
 
-        output += f'   Display:  {self}'
+        displaydigits = [
+            (''.join(sorted(number)), ''.join(str(self.signals2digits[''.join(sorted(number))])))
+                    for number in self.display
+        ]
+        output += '\nDisplay to digits:  '
+        for values in displaydigits:
+            output += f'{values[0]}=>{values[1]}, '
+        output += f'   ({self})'
         print(output)
 
     def validate_outputs(self):
@@ -190,16 +220,22 @@ class SegmentDisplay():
 
 
 def test_case():
-    data = 'fgaebd cg bdaec gdafb agbcfd gdcbef bgcad gfac gcb cdgabef | cg cg fdcagb cbg'
+    # data = 'fgaebd cg bdaec gdafb agbcfd gdcbef bgcad gfac gcb cdgabef | cg cg fdcagb cbg'
+    data = 'be cfbegad cbdgef fgaecd cgeb fdcge agebfd fecdb fabcd edb | fdgacbe cefdb cefbgd gcbe'
     signals, display = data.strip().split('|')
     signals = signals.split()
     display = display.split()
-    return SegmentDisplay(signals, display)
+    print(f'Signals:  {signals}\nDisplay:  {display}')
+    segment_display = SegmentDisplay(signals, display)
+    # Monitor status:
+    segment_display.show()
+    return segment_display
 
 
 def main():
-    # test_case()
+    test_case()
 
+    '''
     with open(INFILE) as infile:
         segment_displays = []
 
@@ -208,10 +244,20 @@ def main():
             signals = signals.split()
             display = display.split()
 
-            segment_displays.append(SegmentDisplay(signals, display))
+            print(f'Signals:  {signals}\nDisplay:  {display}')
+            segment_display = SegmentDisplay(signals, display)
+            segment_displays.append(segment_display)
+            # Monitor status:
+            segment_display.show()
+            print()
 
+    total = 0
     for segment_display in segment_displays:
-        segment_display.show()
+        current = str(segment_display)
+        total += int(current)
+        print(current)
+    print(f'Total:  {total}')
+    '''
 
     '''
     segments = {2, 3, 4, 7}
