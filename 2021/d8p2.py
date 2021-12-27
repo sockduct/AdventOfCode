@@ -1,5 +1,8 @@
 #! /usr/bin/env python3.10
 
+from pprint import pprint
+import sys
+
 '''
 * Seven Segment Digit Display
   * Each row has 4 digits:
@@ -96,20 +99,12 @@ class SegmentDisplay():
 
         # Signal output to segment mapping:
         self.output = {k: '' for k in 'abcdefg'}
-        self.allocated = ''
-        self.backtrack = 2
         self.sequences = [(k, list(self.digit2segments[v])) for k, v in [(2, 1), (3, 7), (4, 4), (7, 8)]]
 
-        while True:
-            if not self.map_outputs():
-                self.mapped_outputs = False
-                continue
-            else:
-                self.mapped_outputs = True
-
-            if self.validate_outputs():
-                break
-
+        res = self.map_outputs()
+        if not res:
+            print('Failed to map outputs to valid segments/digits...aborting!')
+            sys.exit(1)
         self.signals2digits = self.map_signals2digits()
 
     def __repr__(self):
@@ -119,57 +114,93 @@ class SegmentDisplay():
         return ''.join(str(self.signals2digits[''.join(sorted(number))])
                     for number in self.display)
 
+    '''
+    A few things to do here:
+    1) Can I split this up into multiple functions?
+    2) Is the first mapping/pass the right way?
+    3) After first pass, rather than going a-g, go least to most list items -
+       e.g., 2, 2, 3, 4, 4, 7, 7 => maximizes probability of finding a valid
+       sequence
+    4) Lots of exceptions/state - can algorithm be improved?
+    '''
     def map_outputs(self):
-        ###
-        # Wrong approach, start with output 1, item 1 then pick all other output
-        # items.  If fails, then output 1, item 2, ...
-        ###
-        # Map outputs based on digits 1, 7, 4, and 8 have unique segment count:
-        if self.allocated == '':
-            for i, seq in self.sequences:
-                for signal in self.segments[i][0]:
-                    if self.output[signal] == '':
-                        while seq[0] in self.allocated:
-                            seq = self.rotate(seq)
-                        self.output[signal] = seq[:]
-                        self.allocated += seq[0]
-        else:
-            allocated = self.allocated
-            allocated, remove = (allocated[:-self.backtrack],
-                                 allocated[-self.backtrack:])
-            outputs2map = []
-            # Removes leading list entry (option) for output:
-            while remove:
-                target = remove[-1]
-                for key, value in self.output.items():
-                    if target == value[0]:
-                        if self.mapped_outputs:
-                            self.output[key] = value[1:]
-                        outputs2map.append(key)
+        allocated = ''
+        output_keys = 'abcdefg'
+        backtrack = 2
+        backtrack_adjust = False
+        valid = True
+        ###perm_counter = 0
+        ###print('Permutation:  ', end='')
+        while True:
+            ###perm_counter += 1
+            ###print('.', end='', flush=True)
+            ###if perm_counter % 100 == 0:
+            ###    print(f'({perm_counter})', end='', flush=True)
+            # Map outputs based on digits 1, 7, 4, and 8 have unique segment count:
+            if allocated == '':
+                for i, seq in self.sequences:
+                    for signal in self.segments[i][0]:
+                        if self.output[signal] == '':
+                            while seq[0] in allocated:
+                                seq = self.rotate(seq)
+                            self.output[signal] = seq[:]
+                            allocated += seq[0]
+            else:
+                # Look at output as a-g where each can be one of a set of
+                # constrained outputs (in the assigned list).  Can't just
+                # change g, so change f then g - if fails, then go back to e,
+                # if fails, then go back to d, ... all the way back up to a.
+                # Only remove items from the list for a.  Once a empty then
+                # done.  Should be a valid set though for each set of numbers.
+                allocated = [segment[0] for segment in self.output.values()]
+                rotate = allocated[-backtrack:]
+                allocated = allocated[:-backtrack]
+                outputs2map = output_keys[-backtrack:]
+                ### top = True
+
+                # Rotate through output lists to look for valid possibilites:
+                valid = True
+                for target in outputs2map:
+                    if not valid:
                         break
-                remove = remove[:-1]
-
-            self.backtrack += 1
-
-            # Rotate through output lists with item removed above to find valid
-            # possibility.  Can't put in above loop because must remove all
-            # outputs to allow all new permutations.
-            while outputs2map:
-                target = outputs2map.pop()
-                # Sometimes there's no valid possibility and we need to abort
-                # and start over with this function - if loop more than 7 times,
-                # bail:
-                counter = 0
-                while self.output[target][0] in allocated:
+                    # Sometimes there's no valid possibility and we need to abort
+                    # and start over with this function - if loop more than 7 times,
+                    # bail:
+                    counter = len(self.output[target])
+                    # Note - need to rotate top level at least once:
+                    ###if top:
+                    ###    self.output[target] = self.rotate(self.output[target])
+                    ###    top = False
                     self.output[target] = self.rotate(self.output[target])
-                    counter +=1
-                    if counter >= 7:
+                    while self.output[target][0] in allocated:
+                        self.output[target] = self.rotate(self.output[target])
+                        counter -= 1
+                        # Couldn't find valid permutation:
+                        if counter == 0:
+                            valid = False
+                            break
+
+                    if valid:
+                        allocated += self.output[target][0]
+
+                if backtrack_adjust:
+                    backtrack = 2
+                    backtrack_adjust = False
+                else:
+                    backtrack += 1
+                # Once we get to the "top", pop off the first element of 'a' and
+                # start over again:
+                if backtrack == 7:
+                    self.output['a'] = self.output['a'][1:]
+                    if len(self.output['a']) == 0:
                         return False
+                    allocated = [self.output['a'][0]]
+                    backtrack = 6  # Temp, one pass and adjust to 2
+                    backtrack_adjust = True
 
-                allocated += self.output[target][0]
-
-            # Found valid combination - update allocated:
-            self.allocated = allocated
+            if valid and self.validate_outputs():
+                break
+            pprint(self.output)
 
         return True
 
