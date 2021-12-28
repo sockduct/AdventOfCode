@@ -8,3 +8,6 @@ __pycache__/*
 # VSCode config directories
 .vscode/
 
+# Temp/test output files:
+out*.txt
+
