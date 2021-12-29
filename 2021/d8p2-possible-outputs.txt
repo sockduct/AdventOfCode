@@ -1,0 +1,10 @@
+0  1  2  3  4  5  6
+====================
+f, c, a, b, d, g, e*
+f, c, a, b, d, e, g*
+f, c, a, d, b, g, e*
+f, c, a, d, b, e, g
+c, f, a, b, d, g, e
+c, f, a, b, d, e, g
+c, f, a, d, b, g, e
+c, f, a, d, b, e, g

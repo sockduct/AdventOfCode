@@ -76,8 +76,8 @@ d => e
 e => g
 '''
 
-INFILE = 'd8p1t1.txt'
-# INFILE = 'd8p1.txt'
+# INFILE = 'd8p1t1.txt'
+INFILE = 'd8p1.txt'
 
 class SegmentDisplay():
     segment_count = {2: '1', 3: '7', 4: '4', 5: '235', 6: '069', 7: '8'}
@@ -114,7 +114,7 @@ class SegmentDisplay():
         return ''.join(str(self.signals2digits[''.join(sorted(number))])
                     for number in self.display)
 
-    def map_outputs(self, verbose=True):
+    def map_outputs(self, verbose=False):
         allocated = ''
         # Initial setup - map outputs based on digits 1, 7, 4, and 8 having
         # unique segment count:
@@ -127,102 +127,45 @@ class SegmentDisplay():
                         self.output[signal] = seq[:]
                         allocated += seq[0]
 
-        '''
-        ### Current ###
-        Getting close!
-        * Start backtracking with 2
-        * Every time go up a level (e.g. backtrack to 3 from 2), need to reset backtrack to 2
-        * After go up to seven, start over once
-        * When get to seven second time then failed...
-        '''
-        # This doesn't work:
-        # output_keys = 'abcdefg'
         # Instead, sort by ascending number of values:
         output_sorted = dict(sorted(self.output.items(), key=lambda item: len(item[1])))
         output_keys = ''.join(output_sorted.keys())
-        backtrack = 2
-        backtrack_adjust = True
-        valid = True
-        ###perm_counter = 0
-        ###print('Permutation:  ', end='')
         '''
-        A few things to do here:
-        1) Can I split this up into multiple functions?
-        2) Is the first mapping/pass the right way?
-        3) After first pass, rather than going a-g, go least to most list items -
-        e.g., 2, 2, 3, 4, 4, 7, 7 => maximizes probability of finding a valid
-        sequence
-        4) Lots of exceptions/state - can algorithm be improved?
+        * After first pass, rather than going a-g, go least to most list items -
+          e.g., 2, 2, 3, 4, 4, 7, 7 => maximizes probability of finding a valid sequence
+        * Updated approach:
+        1) Try first option
+        2) Swap last two (5 & 6) and try again
+        3) Swap 3 & 4, try again
+        4) Swap 5 & 6, try again
+        5) Swap 0 & 1, try again
+        6) Swap 5 & 6, try again
+        7) Swap 3 & 4, try again
+        8) Swap 5 & 6, try again
         '''
-        while True:
-            ###perm_counter += 1
-            ###print('.', end='', flush=True)
-            ###if perm_counter % 100 == 0:
-            ###    print(f'({perm_counter})', end='', flush=True)
-            #
-            # Look at output as a-g where each can be one of a set of
-            # constrained outputs (in the assigned list).  Can't just
-            # change g, so change f then g - if fails, then go back to e,
-            # if fails, then go back to d, ... all the way back up to a.
-            # Only remove items from the list for a.  Once a empty then
-            # done.  Should be a valid set though for each set of numbers.
-            #
-            allocated = [segment[0] for segment in output_sorted.values()]
-            allocated = allocated[:-backtrack]
-            outputs2map = output_keys[-backtrack:]
-            ### top = True
+        swap_pairs = [(5, 6), (3, 4), (5, 6), (0, 1), (5, 6), (3, 4), (5, 6)]
+        allocated = [segment[0] for segment in output_sorted.values()]
 
-            # Rotate through output lists to look for valid possibilites:
-            valid = True
-            for target in outputs2map:
-                if not valid:
-                    break
-                # Sometimes there's no valid possibility and we need to abort
-                # and start over with this function - if loop more than 7 times,
-                # bail:
-                counter = len(self.output[target])
-                # Note - need to rotate top level at least once:
-                ###if top:
-                ###    self.output[target] = self.rotate(self.output[target])
-                ###    top = False
-                self.output[target] = self.rotate(self.output[target])
-                while self.output[target][0] in allocated:
-                    self.output[target] = self.rotate(self.output[target])
-                    counter -= 1
-                    # Couldn't find valid permutation:
-                    if counter == 0:
-                        valid = False
-                        break
-
-                if valid:
-                    allocated += self.output[target][0]
-
-            backtrack += 1
-            # Once we get to the "top", pop off the first element of 'a' and
-            # start over again:
-            if backtrack == 8:
-                if backtrack_adjust:
-                    backtrack = 2
-                    backtrack_adjust = False
-                else:
-                    '''
-                    self.output['a'] = self.output['a'][1:]
-                    if len(self.output['a']) == 0:
-                        return False
-                    allocated = [self.output['a'][0]]
-                    backtrack = 6  # Temp, one pass and adjust to 2
-                    ### backtrack_adjust = True
-                    '''
-                    return False
-
-            if valid and self.validate_outputs(verbose):
-                break
-            # pprint(self.output)
+        if self.validate_outputs(verbose):
             if verbose:
                 output = dict(sorted(self.output.items(), key=lambda item: len(item[1])))
                 pprint(output, sort_dicts=False)
 
-        return True
+            return True
+
+        for swap_pair in swap_pairs:
+            swapa, swapb = swap_pair
+            self.output[output_keys[swapa]], self.output[output_keys[swapb]] = (
+                self.output[output_keys[swapb]], self.output[output_keys[swapa]])
+
+            if self.validate_outputs(verbose):
+                if verbose:
+                    output = dict(sorted(self.output.items(), key=lambda item: len(item[1])))
+                    pprint(output, sort_dicts=False)
+
+                return True
+
+        return False
 
     def map_signals2digits(self):
         res = {
@@ -275,8 +218,8 @@ class SegmentDisplay():
 def test_case():
     # data = 'fgaebd cg bdaec gdafb agbcfd gdcbef bgcad gfac gcb cdgabef | cg cg fdcagb cbg'
     # data = 'be cfbegad cbdgef fgaecd cgeb fdcge agebfd fecdb fabcd edb | fdgacbe cefdb cefbgd gcbe'
-    # data = 'edbfga begcd cbg gc gcadebf fbgde acbgfd abcde gfcbed gfec | fcgedb cgb dgebacf gc'
-    data = 'fgeab ca afcebg bdacfeg cfaedg gcfdb baec bfadeg bafgc acf | gebdcfa ecba ca fadegcb'
+    data = 'edbfga begcd cbg gc gcadebf fbgde acbgfd abcde gfcbed gfec | fcgedb cgb dgebacf gc'
+    # data = 'fgeab ca afcebg bdacfeg cfaedg gcfdb baec bfadeg bafgc acf | gebdcfa ecba ca fadegcb'
     signals, display = data.strip().split('|')
     signals = signals.split()
     display = display.split()
@@ -288,9 +231,8 @@ def test_case():
 
 
 def main():
-    test_case()
+    # test_case()
 
-    '''
     with open(INFILE) as infile:
         segment_displays = []
 
@@ -312,7 +254,6 @@ def main():
         total += int(current)
         print(current)
     print(f'Total:  {total}')
-    '''
 
     '''
     segments = {2, 3, 4, 7}
