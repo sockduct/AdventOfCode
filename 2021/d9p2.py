@@ -1,7 +1,9 @@
 #! /usr/bin/env python3.10
 
-INFILE = 'd9p1t1.txt'
-# INFILE = 'd9p1.txt'
+from functools import reduce
+
+# INFILE = 'd9p1t1.txt'
+INFILE = 'd9p1.txt'
 
 '''
 Read in a matrix:
@@ -61,7 +63,22 @@ def find_basin_points(ri, ci, rows, cols, row, matrix):
     total_points += cur_right - cur_left
 
     def find_row_points_up(row, ref_inbasin, cur_row):
+        # Find low points in row above low points in row below:
         inbasin = [(val and row[i] < HIGH_POINT) for i, val in enumerate(ref_inbasin)]
+
+        # Check for low points to left and right in current row:
+        for i, val in enumerate(inbasin):
+            if val and i > 0 and not inbasin[i - 1]:
+                temp_i = i - 1
+                while temp_i >= 0 and row[temp_i] < HIGH_POINT:
+                    inbasin[temp_i] = True
+                    temp_i -= 1
+            elif val and i + 1 < cols and not inbasin[i + 1]:
+                temp_i = i + 1
+                while temp_i < cols and row[temp_i] < HIGH_POINT:
+                    inbasin[temp_i] = True
+                    temp_i += 1
+
         if cur_row > 0 and any(inbasin):
             return sum(inbasin) + find_row_points_up(matrix[cur_row - 1], inbasin, cur_row - 1)
 
@@ -76,6 +93,20 @@ def find_basin_points(ri, ci, rows, cols, row, matrix):
 
     def find_row_points_down(row, ref_inbasin, cur_row, rows):
         inbasin = [(val and row[i] < HIGH_POINT) for i, val in enumerate(ref_inbasin)]
+
+        # Check for low points to left and right in current row:
+        for i, val in enumerate(inbasin):
+            if val and i > 0 and not inbasin[i - 1]:
+                temp_i = i - 1
+                while temp_i >= 0 and row[temp_i] < HIGH_POINT:
+                    inbasin[temp_i] = True
+                    temp_i -= 1
+            elif val and i + 1 < cols and not inbasin[i + 1]:
+                temp_i = i + 1
+                while temp_i < cols and row[temp_i] < HIGH_POINT:
+                    inbasin[temp_i] = True
+                    temp_i += 1
+
         if cur_row + 1 < rows and any(inbasin):
             return sum(inbasin) + find_row_points_down(matrix[cur_row + 1], inbasin,
                                                        cur_row + 1, rows)
@@ -86,6 +117,7 @@ def find_basin_points(ri, ci, rows, cols, row, matrix):
     # Make sure that row below connected to valid point in row above - might not
     # be contiguous:
     if ri + 1 < rows:
+        # Find low points in row above low points in row below:
         inbasin = [(cur_left <= i <= cur_right) for i in range(len(row))]
         total_points += find_row_points_down(matrix[ri + 1], inbasin, ri + 1, rows)
 
@@ -107,12 +139,22 @@ def main():
                 print(f'Found low point at ({ri}, {ci}):  {item}')
                 lowpoints.append((ri, ci))
 
-    '''
-    Close - off by 1 on 3rd basin size...
-    '''
+    basinsizes = []
     for ri, ci in lowpoints:
         basin_size = find_basin_points(ri, ci, rows, cols, matrix[ri], matrix)
         print(f'Basin size:  {basin_size}')
+        basinsizes.append(basin_size)
+
+    '''
+    Getting close, but my answer is too small (831,285)
+
+    Look at 3 largest basins to see if missing low points
+    '''
+    # Multiply three largest basins:
+    res = reduce(lambda x, y: x * y, sorted(basinsizes, reverse=True)[:3])
+    print(f'Ten largest basins:  {sorted(basinsizes, reverse=True)[:10]}')
+    print(f'Result:  {res}')
+
 
 if __name__ == '__main__':
     main()
