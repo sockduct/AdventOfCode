@@ -73,7 +73,7 @@ def find_basin_points(ri, ci, rows, cols, row, matrix):
                 while temp_i >= 0 and row[temp_i] < HIGH_POINT:
                     inbasin[temp_i] = True
                     temp_i -= 1
-            elif val and i + 1 < cols and not inbasin[i + 1]:
+            if val and i + 1 < cols and not inbasin[i + 1]:
                 temp_i = i + 1
                 while temp_i < cols and row[temp_i] < HIGH_POINT:
                     inbasin[temp_i] = True
@@ -101,7 +101,7 @@ def find_basin_points(ri, ci, rows, cols, row, matrix):
                 while temp_i >= 0 and row[temp_i] < HIGH_POINT:
                     inbasin[temp_i] = True
                     temp_i -= 1
-            elif val and i + 1 < cols and not inbasin[i + 1]:
+            if val and i + 1 < cols and not inbasin[i + 1]:
                 temp_i = i + 1
                 while temp_i < cols and row[temp_i] < HIGH_POINT:
                     inbasin[temp_i] = True
@@ -124,7 +124,7 @@ def find_basin_points(ri, ci, rows, cols, row, matrix):
     return total_points
 
 
-def main():
+def main(verbose=False):
     matrix = []
     with open(INFILE) as infile:
         for line in infile:
@@ -136,22 +136,31 @@ def main():
     for ri, row in enumerate(matrix):
         for ci, item in enumerate(row):
             if is_lowpoint(ri, ci, rows, cols, item, row, matrix):
-                print(f'Found low point at ({ri}, {ci}):  {item}')
+                if verbose:
+                    print(f'Found low point at ({ri}, {ci}):  {item}')
                 lowpoints.append((ri, ci))
 
     basinsizes = []
     for ri, ci in lowpoints:
         basin_size = find_basin_points(ri, ci, rows, cols, matrix[ri], matrix)
-        print(f'Basin size:  {basin_size}')
+        if verbose:
+            print(f'Basin size:  {basin_size}')
         basinsizes.append(basin_size)
 
     '''
-    Getting close, but my answer is too small (831,285)
+    Getting close, but my answer is too small (840,840)
 
     Look at 3 largest basins to see if missing low points
+
+    Flaw in 105 basin...
+    When go up and down:
+    * Keep track of previous row left and right edges
+    * If current row is wider left or right edge, then check above/below wider
+      points down to starting/home row
     '''
     # Multiply three largest basins:
     res = reduce(lambda x, y: x * y, sorted(basinsizes, reverse=True)[:3])
+    print(f'Basin sizes:  {basinsizes}')
     print(f'Ten largest basins:  {sorted(basinsizes, reverse=True)[:10]}')
     print(f'Result:  {res}')
 
