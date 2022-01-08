@@ -5,6 +5,9 @@ __pycache__/*
 # Vim Temp Files
 *.swp
 
+# Neovim Undo Files
+*.un~
+
 # VSCode config directories
 .vscode/
 
