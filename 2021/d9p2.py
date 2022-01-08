@@ -58,7 +58,7 @@ def find_basin_points(ri, ci, matrix):
     cols = len(matrix[0])
     item = matrix[ri][ci]
     row = matrix[ri]
-    basin_matrix = [ [False] * cols ] * rows
+    basin_matrix = [ [False] * cols for row in range(rows)]
 
     ledge = ci
     redge = ci
@@ -86,53 +86,62 @@ def find_basin_points(ri, ci, matrix):
             if basin_matrix[cur_row][col] and col > cur_right:
                 cur_right = col
 
+        pass ##### Here to facilitate breakpoint
         # Check for low points to left and right in current row:
         for col, val in enumerate(basin_matrix[cur_row]):
-            '''
-            # Believe redundant from above:
-            if val and col < cur_left:
-                cur_left = col
-            if val and col > cur_right:
-                cur_right = col
-            '''
-
             if val and col > 0 and not basin_matrix[cur_row][col - 1]:
                 cur_col = col - 1
-                while cur_col >= 0 and basin_matrix[cur_row][cur_col] < HIGH_POINT:
+                while cur_col >= 0 and matrix[cur_row][cur_col] < HIGH_POINT:
                     basin_matrix[cur_row][cur_col] = True
                     cur_left = cur_col
                     cur_col -= 1
             if val and col + 1 < cols and not basin_matrix[cur_row][col + 1]:
                 cur_col = col + 1
-                while cur_col < cols and basin_matrix[cur_row][cur_col] < HIGH_POINT:
+                while cur_col < cols and matrix[cur_row][cur_col] < HIGH_POINT:
                     basin_matrix[cur_row][cur_col] = True
                     cur_right = cur_col
                     cur_col += 1
 
-        '''
-        When go up and down:
-        * Keep track of previous row left and right edges
-        * If current row is wider left or right edge, then check above/below wider
-          points down to starting/home row
-          * From above, down to home row
-          * from below, up to home row + 1
-        '''
+        # Check for low points below when cur_left or cur_right extends beyond
+        # ledge/redge
         if cur_left < ledge:
             cur_col = cur_left
             while cur_col < ledge:
-                temp_row = cur_row
+                temp_row = cur_row + 1
                 while temp_row <= ri:
-                    if matrix[temp_row][cur_col] < HIGH_POINT:
-                        basin_matrix[temp_row][cur_col] = True
+                    if matrix[temp_row][cur_col] >= HIGH_POINT:
+                        break
+                    basin_matrix[temp_row][cur_col] = True
+                    # Look left or right here
+                    temp_col = cur_col - 1
+                    while temp_col >= 0 and matrix[temp_row][temp_col] < HIGH_POINT:
+                        basin_matrix[temp_row][temp_col] = True
+                        temp_col -= 1
+                    temp_col = cur_col + 1
+                    while temp_col < cols and matrix[temp_row][temp_col] < HIGH_POINT:
+                        basin_matrix[temp_row][temp_col] = True
+                        temp_col += 1
+                    # Iterate row
                     temp_row += 1
                 cur_col += 1
         if cur_right > redge:
             cur_col = cur_right
             while cur_col > redge:
-                temp_row = cur_row
+                temp_row = cur_row + 1
                 while temp_row <= ri:
-                    if matrix[temp_row][cur_col] < HIGH_POINT:
-                        basin_matrix[temp_row][cur_col] = True
+                    if matrix[temp_row][cur_col] >= HIGH_POINT:
+                        break
+                    basin_matrix[temp_row][cur_col] = True
+                    # Look left or right here
+                    temp_col = cur_col - 1
+                    while temp_col >= 0 and matrix[temp_row][temp_col] < HIGH_POINT:
+                        basin_matrix[temp_row][temp_col] = True
+                        temp_col -= 1
+                    temp_col = cur_col + 1
+                    while temp_col < cols and matrix[temp_row][temp_col] < HIGH_POINT:
+                        basin_matrix[temp_row][temp_col] = True
+                        temp_col += 1
+                    # Iterate row
                     temp_row += 1
                 cur_col -= 1
 
@@ -159,51 +168,59 @@ def find_basin_points(ri, ci, matrix):
 
         # Check for low points to left and right in current row:
         for col, val in enumerate(basin_matrix[cur_row]):
-            '''
-            # Believe redundant from above:
-            if val and col < cur_left:
-                cur_left = col
-            if val and col > cur_right:
-                cur_right = col
-            '''
-
             if val and col > 0 and not basin_matrix[cur_row][col - 1]:
                 cur_col = col - 1
-                while cur_col >= 0 and basin_matrix[cur_row][cur_col] < HIGH_POINT:
+                while cur_col >= 0 and matrix[cur_row][cur_col] < HIGH_POINT:
                     basin_matrix[cur_row][cur_col] = True
                     cur_left = cur_col
                     cur_col -= 1
             if val and col + 1 < cols and not basin_matrix[cur_row][col + 1]:
                 cur_col = col + 1
-                while cur_col < cols and basin_matrix[cur_row][cur_col] < HIGH_POINT:
+                while cur_col < cols and matrix[cur_row][cur_col] < HIGH_POINT:
                     basin_matrix[cur_row][cur_col] = True
                     cur_right = cur_col
                     cur_col += 1
 
-        '''
-        When go up and down:
-        * Keep track of previous row left and right edges
-        * If current row is wider left or right edge, then check above/below wider
-          points down to starting/home row
-          * From above, down to home row
-          * from below, up to home row + 1
-        '''
+        # Check for low points below when cur_left or cur_right extends beyond
+        # ledge/redge
         if cur_left < ledge:
             cur_col = cur_left
             while cur_col < ledge:
-                temp_row = cur_row
+                temp_row = cur_row - 1
                 while temp_row > ri:
-                    if matrix[temp_row][cur_col] < HIGH_POINT:
-                        basin_matrix[temp_row][cur_col] = True
+                    if matrix[temp_row][cur_col] >= HIGH_POINT:
+                        break
+                    basin_matrix[temp_row][cur_col] = True
+                    # Look left or right here
+                    temp_col = cur_col - 1
+                    while temp_col >= 0 and matrix[temp_row][temp_col] < HIGH_POINT:
+                        basin_matrix[temp_row][temp_col] = True
+                        temp_col -= 1
+                    temp_col = cur_col + 1
+                    while temp_col < cols and matrix[temp_row][temp_col] < HIGH_POINT:
+                        basin_matrix[temp_row][temp_col] = True
+                        temp_col += 1
+                    # Iterate row
                     temp_row -= 1
                 cur_col += 1
         if cur_right > redge:
             cur_col = cur_right
             while cur_col > redge:
-                temp_row = cur_row
+                temp_row = cur_row - 1
                 while temp_row > ri:
-                    if matrix[temp_row][cur_col] < HIGH_POINT:
-                        basin_matrix[temp_row][cur_col] = True
+                    if matrix[temp_row][cur_col] >= HIGH_POINT:
+                        break
+                    basin_matrix[temp_row][cur_col] = True
+                    # Look left or right here
+                    temp_col = cur_col - 1
+                    while temp_col >= 0 and matrix[temp_row][temp_col] < HIGH_POINT:
+                        basin_matrix[temp_row][temp_col] = True
+                        temp_col -= 1
+                    temp_col = cur_col + 1
+                    while temp_col < cols and matrix[temp_row][temp_col] < HIGH_POINT:
+                        basin_matrix[temp_row][temp_col] = True
+                        temp_col += 1
+                    # Iterate row
                     temp_row -= 1
                 cur_col -= 1
 
@@ -243,20 +260,24 @@ def main(verbose=False):
 
     '''
     Getting close, but my answer is too small (840,840)
-
-    Look at 3 largest basins to see if missing low points
-
-    Flaw in 105 basin...
-    When go up and down:
-    * Keep track of previous row left and right edges
-    * If current row is wider left or right edge, then check above/below wider
-      points down to starting/home row
-      * From above, down to home row
-      * from below, up to home row + 1
+    Getting closer, my answer is too large (3,344,952)
+    Current answer:  848,848
+    Work through current break point - another off by one error!
     '''
     # Multiply three largest basins:
     res = reduce(lambda x, y: x * y, sorted(basinsizes, reverse=True)[:3])
-    print(f'Basin sizes:  {basinsizes}')
+    print(f'Number of low points:  {len(lowpoints)}')
+    print('Low points:')
+    cur = 0
+    while cur < len(lowpoints):
+        print(lowpoints[cur:cur + 10])
+        cur += 10
+    print(f'Number of basins:  {len(basinsizes)}')
+    print('Basin sizes:')
+    cur = 0
+    while cur < len(basinsizes):
+        print(basinsizes[cur:cur + 10])
+        cur += 10
     print(f'Ten largest basins:  {sorted(basinsizes, reverse=True)[:10]}')
     print(f'Result:  {res}')
 
