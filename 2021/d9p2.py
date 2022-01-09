@@ -74,7 +74,7 @@ def find_basin_points(ri, ci, matrix):
         redge += 1
         basin_matrix[ri][redge] = True
 
-    def find_row_points_up(basin_matrix, cur_row):
+    def find_row_points_up(basin_matrix, cur_row, ledge, redge):
         cur_left = len(row) + 1
         cur_right = -1
 
@@ -86,7 +86,7 @@ def find_basin_points(ri, ci, matrix):
             if basin_matrix[cur_row][col] and col > cur_right:
                 cur_right = col
 
-        pass ##### Here to facilitate breakpoint
+        ### pass # Here to facilitate breakpoint
         # Check for low points to left and right in current row:
         for col, val in enumerate(basin_matrix[cur_row]):
             if val and col > 0 and not basin_matrix[cur_row][col - 1]:
@@ -146,15 +146,17 @@ def find_basin_points(ri, ci, matrix):
                 cur_col -= 1
 
         if cur_row > 0 and any(basin_matrix[cur_row]):
-            find_row_points_up(basin_matrix, cur_row - 1)
+            ledge = cur_left
+            redge = cur_right
+            find_row_points_up(basin_matrix, cur_row - 1, ledge, redge)
 
     # Recursively check above:
     # Make sure that row above connected to valid point in row below - might not
     # be contiguous:
     if ri > 0:
-        find_row_points_up(basin_matrix, ri - 1)
+        find_row_points_up(basin_matrix, ri - 1, ledge, redge)
 
-    def find_row_points_down(basin_matrix, cur_row):
+    def find_row_points_down(basin_matrix, cur_row, ledge, redge):
         cur_left = len(row) + 1
         cur_right = -1
 
@@ -166,6 +168,7 @@ def find_basin_points(ri, ci, matrix):
             if basin_matrix[cur_row][col] and col > cur_right:
                 cur_right = col
 
+        ### pass # For debugging/breakpoint
         # Check for low points to left and right in current row:
         for col, val in enumerate(basin_matrix[cur_row]):
             if val and col > 0 and not basin_matrix[cur_row][col - 1]:
@@ -181,13 +184,13 @@ def find_basin_points(ri, ci, matrix):
                     cur_right = cur_col
                     cur_col += 1
 
-        # Check for low points below when cur_left or cur_right extends beyond
+        # Check for low points above when cur_left or cur_right extends beyond
         # ledge/redge
         if cur_left < ledge:
             cur_col = cur_left
             while cur_col < ledge:
                 temp_row = cur_row - 1
-                while temp_row > ri:
+                while temp_row >= ri:
                     if matrix[temp_row][cur_col] >= HIGH_POINT:
                         break
                     basin_matrix[temp_row][cur_col] = True
@@ -225,14 +228,16 @@ def find_basin_points(ri, ci, matrix):
                 cur_col -= 1
 
         if cur_row + 1 < rows and any(basin_matrix[cur_row]):
-            find_row_points_down(basin_matrix, cur_row + 1)
+            ledge = cur_left
+            redge = cur_right
+            find_row_points_down(basin_matrix, cur_row + 1, ledge, redge)
 
     # Recurively check below:
     # Make sure that row below connected to valid point in row above - might not
     # be contiguous:
     if ri + 1 < rows:
         # Find low points in row above low points in row below:
-        find_row_points_down(basin_matrix, ri + 1)
+        find_row_points_down(basin_matrix, ri + 1, ledge, redge)
 
     return sum(sum(row) for row in basin_matrix)
 
