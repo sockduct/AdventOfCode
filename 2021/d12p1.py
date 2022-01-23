@@ -8,6 +8,84 @@ INFILE = 'd12p1t1.txt'
 # INFILE = 'd12p1t3.txt'
 # INFILE = 'd12p1.txt'
 
+FINISHED = False
+
+'''
+Pseudo-code for backtrack:
+Backtrack-DFS(a, k)
+    if a = (a1, a2, ..., ak) is a solution:
+        report it.
+    else
+        k = k + 1
+        construct Sk, the set of candidates for position k of a
+        for ak in Sk:
+            Backtrack-DFS(a, k)
+'''
+def backtrack(edges, k, graph):
+    '''Generate each possible configuration exactly once.  Model the
+       combinatorial search solution as a list edges = (a1, a2, ..., an), where
+       each element ai is selected from a finite ordered set Si.  The list
+       represents a sequence of edges in a path in the graph, where ai contains
+       the ith graph edge in the sequence.
+    '''
+    if is_a_solution(edges, k, graph):
+        process_solution(edges, k, graph)
+    else:
+        k += 1
+        candidates = construct_candidates(edges, k, graph)
+        for edge in candidates:
+            edges.append(edge)
+            # make_move(edges, k, graph)
+            backtrack(edges, k, graph)
+            # unmake_move(edges, k, graph)
+
+            if (FINISHED):
+                return  # terminate early
+
+
+def construct_candidates(edges, k, graph):
+    '''This routine returns a list c with the complete set of possible
+       candidates for the kth position of edges, given the contents of the first
+       k − 1 positions.
+    '''
+    return (
+        list(set(graph._outgoing[edges[k - 2]._destination].values()) - set(edges))
+        if edges
+        else list(graph._outgoing[graph.get_vertex('start')].values())
+    )
+
+
+def is_a_solution(edges, k, graph):
+    '''This Boolean function tests whether the first k elements of list edges
+       form a complete solution for the given problem.  In this case, a complete
+       solution consists of edges starting from 'start' and ending with 'end'.
+    '''
+    return edges[k - 1]._destination.label == 'end' if edges else False
+
+
+def make_move(edges, k, graph):
+    '''This routine enables us to modify a data structure in response to the
+       latest move.  Such a data structure can always be rebuilt from scratch
+       using the solution vector edges, but this can be inefficient when each
+       move involves small incremental changes that can easily be undone.
+    '''
+    pass
+
+
+def process_solution(edges, k, graph):
+    '''This routine prints, counts, stores, or processes a complete solution
+       once it is constructed.'''
+    print(f'Solution {k}:  {edges}')
+
+
+def unmake_move(edges, k, graph):
+    '''This routine enables us to clean up this data structure if we decide to
+       take back the move.  Such a data structure can always be rebuilt from
+       scratch using the solution vector edges, but this can be inefficient when
+       each move involves small incremental changes that can easily be undone.
+    '''
+    pass
+
 
 def get_dfs_edges(dfs_res):
     edge_path = 'Edge Path:  '
@@ -39,7 +117,7 @@ def main():
     print(cave_graph)
 
     '''
-    Need DFS-like approach or BFS-like approach
+    Need DFS-like approach
     * Treat as directed graph, for edge set of edges add both directions
     * From vertex 'start', find all possible edges
     * What about collecting edge combinations from DFS starting from each
@@ -66,6 +144,7 @@ def main():
     '''
     if not (start_vert := cave_graph.get_vertex(start)):
         raise ValueError('Expected a vertex labelled {start}')
+    backtrack([], 0, cave_graph)
 
 
 if __name__ == '__main__':
