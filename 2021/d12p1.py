@@ -21,49 +21,48 @@ Backtrack-DFS(a, k)
         for ak in Sk:
             Backtrack-DFS(a, k)
 '''
-def backtrack(edges, k, graph):
+def backtrack(vertices, edges, k, graph, end_vertex):
     '''Generate each possible configuration exactly once.  Model the
        combinatorial search solution as a list edges = (a1, a2, ..., an), where
        each element ai is selected from a finite ordered set Si.  The list
        represents a sequence of edges in a path in the graph, where ai contains
        the ith graph edge in the sequence.
     '''
-    if is_a_solution(edges, k, graph):
-        process_solution(edges, k, graph)
+    if is_a_solution(vertices, edges, k, graph, end_vertex):
+        process_solution(vertices, k, graph)
     else:
         k += 1
-        candidates = construct_candidates(edges, k, graph)
+        candidates = construct_candidates(vertices, edges, k, graph)
         for edge in candidates:
-            edges.append(edge)
-            # make_move(edges, k, graph)
-            backtrack(edges, k, graph)
-            # unmake_move(edges, k, graph)
+            vertex = edge.opposite(vertices[k -1])
+            vertices.append(vertex)
+            # make_move(vertices, k, graph)
+            backtrack(vertices, edges, k, graph, end_vertex)
+            # unmake_move(vertices, k, graph)
 
             if (FINISHED):
                 return  # terminate early
 
 
-def construct_candidates(edges, k, graph):
+def construct_candidates(vertices, edges, k, graph):
     '''This routine returns a list c with the complete set of possible
        candidates for the kth position of edges, given the contents of the first
-       k − 1 positions.
+       k - 1 positions.
     '''
-    return (
-        list(set(graph._outgoing[edges[k - 2]._destination].values()) - set(edges))
-        if edges
-        else list(graph._outgoing[graph.get_vertex('start')].values())
-    )
+    # Retrieve the set of outgoing edges from last vertex and remove edges
+    # already used:
+    return list(set(graph.incident_edges(vertices[k - 1])) - set(edges))
 
 
-def is_a_solution(edges, k, graph):
+def is_a_solution(vertices, k, graph, end_vertex):
     '''This Boolean function tests whether the first k elements of list edges
        form a complete solution for the given problem.  In this case, a complete
        solution consists of edges starting from 'start' and ending with 'end'.
     '''
-    return edges[k - 1]._destination.label == 'end' if edges else False
+    return vertices[-1] == end_vertex
 
 
-def make_move(edges, k, graph):
+def make_move(vertices, k, graph):
     '''This routine enables us to modify a data structure in response to the
        latest move.  Such a data structure can always be rebuilt from scratch
        using the solution vector edges, but this can be inefficient when each
@@ -72,13 +71,13 @@ def make_move(edges, k, graph):
     pass
 
 
-def process_solution(edges, k, graph):
+def process_solution(vertices, k, graph):
     '''This routine prints, counts, stores, or processes a complete solution
        once it is constructed.'''
-    print(f'Solution {k}:  {edges}')
+    print(f'Solution {k}:  {vertices}')
 
 
-def unmake_move(edges, k, graph):
+def unmake_move(vertices, k, graph):
     '''This routine enables us to clean up this data structure if we decide to
        take back the move.  Such a data structure can always be rebuilt from
        scratch using the solution vector edges, but this can be inefficient when
@@ -104,6 +103,7 @@ def get_dfs_edges(dfs_res):
 def main():
     cave_graph = Graph(directed=True)
     start = 'start'
+    end = 'end'
     with open(INFILE) as infile:
         for edge in infile:
             start_vertex, end_vertex = edge.strip().split('-')
@@ -142,9 +142,10 @@ def main():
         dfs_res = dfs(cave_graph, vertex)
         print(get_dfs_edges(dfs_res))
     '''
-    if not (start_vert := cave_graph.get_vertex(start)):
-        raise ValueError('Expected a vertex labelled {start}')
-    backtrack([], 0, cave_graph)
+    if not ((start_vertex := cave_graph.get_vertex(start)) and
+            (end_vertex := cave_graph.get_vertex(end))):
+        raise ValueError('Expected a vertices labelled {start} and {end}')
+    backtrack([start_vertex], [], 0, cave_graph, end_vertex)
 
 
 if __name__ == '__main__':
