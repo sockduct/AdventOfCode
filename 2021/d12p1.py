@@ -9,6 +9,7 @@ INFILE = 'd12p1t1.txt'
 # INFILE = 'd12p1.txt'
 
 FINISHED = False
+SOLUTION = 1  # God awful - don't use global variables, fix this!!!
 
 '''
 Pseudo-code for backtrack:
@@ -21,7 +22,7 @@ Backtrack-DFS(a, k)
         for ak in Sk:
             Backtrack-DFS(a, k)
 '''
-def backtrack(vertices, edges, k, graph, end_vertex):
+def backtrack(vertices, edges, k, graph, end_vertex, solution=1):
     '''Generate each possible configuration exactly once.  Model the
        combinatorial search solution as a list edges = (a1, a2, ..., an), where
        each element ai is selected from a finite ordered set Si.  The list
@@ -29,16 +30,25 @@ def backtrack(vertices, edges, k, graph, end_vertex):
        the ith graph edge in the sequence.
     '''
     if is_a_solution(vertices, edges, k, graph, end_vertex):
-        process_solution(vertices, k, graph)
+        process_solution(vertices, edges, k, graph, solution)
+        solution += 1
     else:
         k += 1
         candidates = construct_candidates(vertices, edges, k, graph)
         for edge in candidates:
-            vertex = edge.opposite(vertices[k -1])
-            vertices.append(vertex)
+            vertex = edge.opposite(vertices[k - 1])
+            # No cycles to start:
+            if vertex == vertices[0]:
+                continue
             # make_move(vertices, k, graph)
-            backtrack(vertices, edges, k, graph, end_vertex)
+            edges.append(edge)
+            vertices.append(vertex)
+            # end_make_move
+            backtrack(vertices, edges, k, graph, end_vertex, solution)
             # unmake_move(vertices, k, graph)
+            edges.pop()
+            vertices.pop()
+            # end_unmake_move
 
             if (FINISHED):
                 return  # terminate early
@@ -54,7 +64,7 @@ def construct_candidates(vertices, edges, k, graph):
     return list(set(graph.incident_edges(vertices[k - 1])) - set(edges))
 
 
-def is_a_solution(vertices, k, graph, end_vertex):
+def is_a_solution(vertices, edges, k, graph, end_vertex):
     '''This Boolean function tests whether the first k elements of list edges
        form a complete solution for the given problem.  In this case, a complete
        solution consists of edges starting from 'start' and ending with 'end'.
@@ -71,10 +81,19 @@ def make_move(vertices, k, graph):
     pass
 
 
-def process_solution(vertices, k, graph):
+def process_solution(vertices, edges, k, graph, solution, verbose=False):
     '''This routine prints, counts, stores, or processes a complete solution
        once it is constructed.'''
-    print(f'Solution {k}:  {vertices}')
+    # God awful using global variable - fix this!!!
+    global SOLUTION
+
+    if verbose:
+        print(f'Solution {k}:  {vertices}, ({edges})')
+    else:
+        print(f'Solution {SOLUTION}:  {", ".join(str(vertex) for vertex in vertices)}')
+
+    # God awful using global variable - fix this!!!
+    SOLUTION += 1
 
 
 def unmake_move(vertices, k, graph):
@@ -100,7 +119,7 @@ def get_dfs_edges(dfs_res):
     return edge_path
 
 
-def main():
+def main(verbose=False):
     cave_graph = Graph(directed=True)
     start = 'start'
     end = 'end'
@@ -114,7 +133,8 @@ def main():
             if not cave_graph.get_edge(sv, ev):
                 cave_graph.insert_edge(sv, ev)
 
-    print(cave_graph)
+    if verbose:
+        print(cave_graph)
 
     '''
     Need DFS-like approach

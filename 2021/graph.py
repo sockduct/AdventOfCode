@@ -112,11 +112,16 @@ class Graph:
         if self.get_edge(u, v) is not None:            # includes error checking
             raise ValueError('u and v are already adjacent')
 
-        e_out = self.Edge(u, v, label)
-        e_in = self.Edge(v, u, label) if self.is_directed() else e_out
+        directed = self.is_directed()
+        e_out = self.Edge(u, v, label, directed)
 
         self._outgoing[u][v] = e_out
-        self._incoming[v][u] = e_in
+        self._incoming[v][u] = e_out
+
+        if directed:
+            e_in = self.Edge(v, u, label, directed)
+            self._outgoing[v][u] = e_in
+            self._incoming[u][v] = e_in
 
     def insert_vertex(self, label):
         """Insert and return a new Vertex with label."""
@@ -150,11 +155,12 @@ class Graph:
         """Lightweight edge structure for a graph."""
 
         # Edge label optional:
-        def __init__(self, u, v, label=''):
+        def __init__(self, u, v, label='', directed=False):
             """Do not call constructor directly. Use Graph's insert_edge(u, v, label)."""
             self._origin = u
             self._destination = v
             self._label = label
+            self._directed = directed
 
         def endpoints(self):
             """Return (u, v) tuple for vertices u and v."""
@@ -190,11 +196,17 @@ class Graph:
             return hash((self._origin, self._destination))
 
         def __repr__(self):
-            connstr = f'<==({self._label})==>' if self._label else '<==>'
+            if self._directed:
+                connstr = f'==({self._label})==>' if self._label else '==>'
+            else:
+                connstr = f'<==({self._label})==>' if self._label else '<==>'
             return f'<Edge({self._origin}{connstr}{self._destination})>'
 
         def __str__(self):
-            connstr = f'<==({self._label})==>' if self._label else '<==>'
+            if self._directed:
+                connstr = f'==({self._label})==>' if self._label else '==>'
+            else:
+                connstr = f'<==({self._label})==>' if self._label else '<==>'
             return f'({self._origin}{connstr}{self._destination})'
 
     class Vertex:
