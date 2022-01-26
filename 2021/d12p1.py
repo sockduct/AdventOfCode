@@ -3,13 +3,29 @@
 from dfs import dfs, construct_path, dfs_complete
 from graph import Graph
 
-INFILE = 'd12p1t1.txt'
+
+# INFILE = 'd12p1t1.txt'
 # INFILE = 'd12p1t2.txt'
 # INFILE = 'd12p1t3.txt'
-# INFILE = 'd12p1.txt'
+INFILE = 'd12p1.txt'
 
 FINISHED = False
-SOLUTION = 1  # God awful - don't use global variables, fix this!!!
+
+
+class Counter():
+    # Use class level variable instead of global one:
+    __solution = 0
+
+    def __repr__(self):
+        return f'<Counter({self.__solution})>'
+
+    def __str__(self):
+        return f'{self.__solution}'
+
+    def increment(self):
+        # Use class instead of self or increments instance instead of class:
+        Counter.__solution += 1
+
 
 '''
 Pseudo-code for backtrack:
@@ -22,7 +38,7 @@ Backtrack-DFS(a, k)
         for ak in Sk:
             Backtrack-DFS(a, k)
 '''
-def backtrack(vertices, edges, k, graph, end_vertex, solution=1):
+def backtrack(vertices, edges, k, graph, end_vertex):
     '''Generate each possible configuration exactly once.  Model the
        combinatorial search solution as a list edges = (a1, a2, ..., an), where
        each element ai is selected from a finite ordered set Si.  The list
@@ -30,8 +46,7 @@ def backtrack(vertices, edges, k, graph, end_vertex, solution=1):
        the ith graph edge in the sequence.
     '''
     if is_a_solution(vertices, edges, k, graph, end_vertex):
-        process_solution(vertices, edges, k, graph, solution)
-        solution += 1
+        process_solution(vertices, edges, k, graph)
     else:
         k += 1
         candidates = construct_candidates(vertices, edges, k, graph)
@@ -40,11 +55,14 @@ def backtrack(vertices, edges, k, graph, end_vertex, solution=1):
             # No cycles to start:
             if vertex == vertices[0]:
                 continue
+            # Can't visit "small" (lowercase) verticies twice:
+            if vertex.label == vertex.label.lower() and vertex in vertices:
+                continue
             # make_move(vertices, k, graph)
             edges.append(edge)
             vertices.append(vertex)
             # end_make_move
-            backtrack(vertices, edges, k, graph, end_vertex, solution)
+            backtrack(vertices, edges, k, graph, end_vertex)
             # unmake_move(vertices, k, graph)
             edges.pop()
             vertices.pop()
@@ -81,19 +99,17 @@ def make_move(vertices, k, graph):
     pass
 
 
-def process_solution(vertices, edges, k, graph, solution, verbose=False):
+def process_solution(vertices, edges, k, graph, verbose=False):
     '''This routine prints, counts, stores, or processes a complete solution
        once it is constructed.'''
     # God awful using global variable - fix this!!!
-    global SOLUTION
+    solution = Counter()
+    solution.increment()
 
     if verbose:
         print(f'Solution {k}:  {vertices}, ({edges})')
     else:
-        print(f'Solution {SOLUTION}:  {", ".join(str(vertex) for vertex in vertices)}')
-
-    # God awful using global variable - fix this!!!
-    SOLUTION += 1
+        print(f'Solution {solution}:  {", ".join(str(vertex) for vertex in vertices)}')
 
 
 def unmake_move(vertices, k, graph):
