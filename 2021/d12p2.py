@@ -50,6 +50,11 @@ class SmallCaveFlag():
         # Use class instead of self or increments instance instead of class:
         SmallCaveFlag.__reedged = value
 
+    def reset(self):
+        SmallCaveFlag.__reedged = False
+        SmallCaveFlag.__vertex = None
+        SmallCaveFlag.__visited_twice = False
+
     def toggle(self):
         # Use class instead of self or increments instance instead of class:
         SmallCaveFlag.__visited_twice = not SmallCaveFlag.__visited_twice
@@ -111,14 +116,29 @@ def backtrack(vertices, edges, k, graph, end_vertex):
             '''
             # make_move(vertices, k, graph)
             edges.append(edge)
+            last_vertex = vertices[-1]
             vertices.append(vertex)
+            # If we go from a small cave to a big cave and flag == False and
+            # the small cave has a degree > 1, remove incoming and outgoing
+            # edges between them from edges
+            if (last_vertex != vertices[0] and vertex != end_vertex and
+                    last_vertex.label == last_vertex.label.lower() and
+                    vertex.label != vertex.label.lower() and not flag and
+                    graph.degree(last_vertex) > 1):
+                if (outedge := graph.get_edge(last_vertex, vertex)) in edges:
+                    edges.remove(outedge)
+                if (inedge := graph.get_edge(vertex, last_vertex)) in edges:
+                    edges.remove(inedge)
             # end_make_move
 
             backtrack(vertices, edges, k, graph, end_vertex)
 
             # unmake_move(vertices, k, graph)
-            edges.pop()
-            vertices.pop()
+            if len(edges) > 1:
+                edges.pop()
+            removed_vertex = vertices.pop()
+            if removed_vertex == flag.vertex:
+                flag.reset()
             # end_unmake_move
 
 
