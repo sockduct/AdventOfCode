@@ -3,10 +3,10 @@
 from graph import Graph
 
 
-INFILE = 'd12p1t1.txt'
+# INFILE = 'd12p1t1.txt'
 # INFILE = 'd12p1t2.txt'
 # INFILE = 'd12p1t3.txt'
-# INFILE = 'd12p1.txt'
+INFILE = 'd12p1.txt'
 
 
 class Counter():
@@ -73,7 +73,7 @@ class SmallCaveFlag():
         SmallCaveFlag.__vertex = None
 
 
-def backtrack(vertices, edges, k, graph, end_vertex):
+def backtrack(vertices, k, graph, end_vertex):
     '''Generate each possible configuration exactly once.  Model the
        combinatorial search solution as a list edges = (a1, a2, ..., an), where
        each element ai is selected from a finite ordered set Si.  The list
@@ -82,11 +82,11 @@ def backtrack(vertices, edges, k, graph, end_vertex):
     '''
     flag = SmallCaveFlag()
 
-    if is_a_solution(vertices, edges, k, graph, end_vertex):
-        process_solution(vertices, edges, k, graph)
+    if is_a_solution(vertices, k, graph, end_vertex):
+        process_solution(vertices, k, graph)
     else:
         k += 1
-        candidates = construct_candidates(vertices, edges, k, graph)
+        candidates = construct_candidates(vertices, k, graph)
         for edge in candidates:
             vertex = edge.opposite(vertices[k - 1])
             # No cycles to start:
@@ -101,64 +101,28 @@ def backtrack(vertices, edges, k, graph, end_vertex):
                 flag.toggle()
                 flag.vertex = vertex
 
-            '''
-            Need to be smart about choosing "small" cave to visit twice:
-            Example:  start, A, b, A, b, A, c, A, end
-            Possible approach:
-            * When visit small cave, if has outgoing degree > 1, then allow
-              revisiting it
-            * Tricky part is have to re-insert edges to it - in above example,
-              when leave b and return to A, have to re-add A==>b and b==>A
-              edges
-            * May be corner cases too - have to test
-            * In addition, when unmake_move, need to figure out how to "reset"
-              the flag to defaults for next path iteration
-            '''
             # make_move(vertices, k, graph)
-            edges.append(edge)
-            last_vertex = vertices[-1]
             vertices.append(vertex)
-            # If we go from a small cave to a big cave and flag == False and
-            # the small cave has a degree > 1, remove incoming and outgoing
-            # edges between them from edges
-            if (last_vertex != vertices[0] and vertex != end_vertex and
-                    last_vertex.label == last_vertex.label.lower() and
-                    vertex.label != vertex.label.lower() and not flag and
-                    graph.degree(last_vertex) > 1):
-                if (outedge := graph.get_edge(last_vertex, vertex)) in edges:
-                    edges.remove(outedge)
-                if (inedge := graph.get_edge(vertex, last_vertex)) in edges:
-                    edges.remove(inedge)
             # end_make_move
 
-            backtrack(vertices, edges, k, graph, end_vertex)
+            backtrack(vertices, k, graph, end_vertex)
 
             # unmake_move(vertices, k, graph)
-            if len(edges) > 1:
-                edges.pop()
             removed_vertex = vertices.pop()
             if removed_vertex == flag.vertex:
                 flag.reset()
             # end_unmake_move
 
 
-def construct_candidates(vertices, edges, k, graph):
+def construct_candidates(vertices, k, graph):
     '''This routine returns a list c with the complete set of possible
        candidates for the kth position of edges, given the contents of the first
        k - 1 positions.
     '''
-    flag = SmallCaveFlag()
-
-    # Normal case
-    if not flag or flag.reedged:
-        return list(set(graph.incident_edges(vertices[k - 1])) - set(edges))
-
-    flag.reedged = True
-    return list((set(graph.incident_edges(vertices[k - 1])) - set(edges)) |
-                set(graph.incident_edges(flag.vertex)))
+    return list(graph.incident_edges(vertices[k - 1]))
 
 
-def is_a_solution(vertices, edges, k, graph, end_vertex):
+def is_a_solution(vertices, k, graph, end_vertex):
     '''This Boolean function tests whether the first k elements of list edges
        form a complete solution for the given problem.  In this case, a complete
        solution consists of edges starting from 'start' and ending with 'end'.
@@ -175,7 +139,7 @@ def make_move(vertices, k, graph):
     pass
 
 
-def process_solution(vertices, edges, k, graph, verbose=False):
+def process_solution(vertices, k, graph, verbose=False):
     '''This routine prints, counts, stores, or processes a complete solution
        once it is constructed.'''
     # God awful using global variable - fix this!!!
@@ -183,7 +147,7 @@ def process_solution(vertices, edges, k, graph, verbose=False):
     solution.increment()
 
     if verbose:
-        print(f'Solution {k}:  {vertices}, ({edges})')
+        print(f'Solution {k}:  {vertices}')
     else:
         print(f'Solution {solution}:  {", ".join(str(vertex) for vertex in vertices)}')
 
@@ -199,6 +163,7 @@ def unmake_move(vertices, k, graph):
 
 def main(verbose=False):
     cave_graph = Graph(directed=True)
+    # cave_graph = Graph()  # Simplified for drawing
     start = 'start'
     end = 'end'
     with open(INFILE) as infile:
@@ -214,10 +179,13 @@ def main(verbose=False):
     if verbose:
         print(cave_graph)
 
+    # Early exit
+    # return
+
     if not ((start_vertex := cave_graph.get_vertex(start)) and
             (end_vertex := cave_graph.get_vertex(end))):
         raise ValueError('Expected a vertices labelled {start} and {end}')
-    backtrack([start_vertex], [], 0, cave_graph, end_vertex)
+    backtrack([start_vertex], 0, cave_graph, end_vertex)
 
 
 if __name__ == '__main__':
