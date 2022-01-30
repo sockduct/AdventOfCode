@@ -1,11 +1,8 @@
 #! /usr/bin/env python3.10
 
 
-from multiprocessing.sharedctypes import Value
-
-
-INFILE = 'd13p1t1.txt'
-# INFILE = 'd13p1.txt'
+# INFILE = 'd13p1t1.txt'
+INFILE = 'd13p1.txt'
 
 
 class Matrix():
@@ -27,7 +24,7 @@ class Matrix():
     def count(self):
         return sum(x == '#' for row in self._matrix for x in row)
 
-    def fold(self, folds):
+    def fold(self, folds, verbose=False):
         for axis, line in folds:
             if axis == 'x':
                 # Sanity check
@@ -35,24 +32,30 @@ class Matrix():
                     if row[line] == '#':
                         raise ValueError('Attempted fold on non-empty line')
                     row[line] = '|'
-                print(f'Current:\n{self}\n')
+                if verbose:
+                    print(f'Current:\n{self}\n')
 
                 '''
                 Finish fold values and reset x below...
                 '''
                 # Fold values in:
                 for left_col, right_col in enumerate(range(self._x - 1, line, -1)):
-                    for y, val in enumerate(self._matrix):
-                        if val == '#':
-                            ...
+                    for row in self._matrix:
+                        if row[right_col] == '#':
+                            row[left_col] = '#'
+
+                # Remove lines from fold right:
+                self._matrix = [row[:line] for row in self._matrix]
 
                 # Reset x:
+                self._x = line
             elif axis == 'y':
                 # Sanity check
                 if '#' in self._matrix[line]:
                     raise ValueError('Attempted fold on non-empty line')
                 self._matrix[line] = ['-'] * self._x
-                print(f'Current:\n{self}\n')
+                if verbose:
+                    print(f'Current:\n{self}\n')
 
                 # Fold values in
                 for top_row, bottom_row in enumerate(range(self._y - 1, line, -1)):
@@ -70,7 +73,7 @@ class Matrix():
                 raise ValueError('Unexpected value:  {axis} - expecting x or y')
 
 
-def main():
+def main(verbose=False):
     max_x = 0
     max_y = 0
     coords = []
@@ -93,8 +96,11 @@ def main():
 
     matrix = Matrix(max_x, max_y)
     matrix.add_coords(coords)
-    print(matrix)
+    if verbose:
+        print(matrix)
     matrix.fold(folds)
+    # For Problem 1, just do first fold:
+    # matrix.fold(folds[:1])
     print(matrix)
     print(f'Matrix count:  {matrix.count()}')
 
