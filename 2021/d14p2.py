@@ -9,6 +9,14 @@ INFILE = 'd14p1t1.txt'
 # INFILE = 'd14p1.txt'
 
 
+'''
+Need more efficient approach:
+* There are 4 elements
+* Rather than encoding as UTF-8 or worse, encode as int or something more efficient
+* Encode in a way that makes easy to update - perhaps favor encoding over printing or
+  displaying efficiently
+* When step through to apply insertion rules, need more efficient updating approach
+'''
 class Polymer():
     def __init__(self, ptmpl, insrules):
         self.ptmpl = ptmpl
@@ -72,10 +80,11 @@ def main(verbose=True):
 
     # Works for 10 steps - fails for 40, believe n^2 growth, need better
     # approach:
-    for n in range(1, 11):
+    for n in range(1, 41):
         polymer.step()
         if verbose:
             print(f'\n                Step:  {n}\n{polymer}')
+            print(f'\nDifference:  {polymer.diff()}')
 
     print(f'\nDifference:  {polymer.diff()}')
 
