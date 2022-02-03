@@ -10,21 +10,21 @@ INFILE = 'd14p1t1.txt'
 
 
 '''
-Need more efficient approach:
-* There are 4 - 10 elements (can encode as 0 - 9)
-* Rather than encoding as UTF-8 or worse, encode as int or something more efficient
-  * Map each element to a digit
+Now have fast encoding -> quickly step through pair insertion rules
 
-* Encode in a way that makes easy to update - perhaps favor encoding over printing or
-  displaying efficiently
-* When step through to apply insertion rules, need more efficient updating approach
-  * Group insertion rules - set that results in element 1, set that results in element
-    2, ...
+Problem:  How to go from polymer (pair count) to actual polymer string
+* Tricky because of sequencing:
+  Go from CH=1, HB=1, NC=1, NB=1, BC=1, CN=1 to NCNBCHB
+* Start with keeping track of first and last sequences
+* Look for pattern - step through
 '''
 class Polymer():
     def __init__(self, ptmpl, insrules):
         self.ptmpl = ptmpl
         self.insrules = insrules
+        # First and last pairs:
+        self.first = ptmpl[:2]
+        self.last = ptmpl[-2:]
 
         # Fast map from old pair to new pairs:
         self.xformrules = {key: (key[0] + val, val + key[1]) for key, val in insrules.items()}
@@ -34,16 +34,6 @@ class Polymer():
 
         for p1, p2 in pairwise(self.ptmpl):
             self.polymer[p1 + p2] += 1
-
-        # Convert to more efficient representations:
-        '''
-        elements = set(self.ptmpl) | set(self.insrules.values())
-        self.ptmpl_map = dict(enumerate(elements))
-        self.insrules_map = {
-            frozenset({key for key, val in self.insrules.items() if val == e}): e
-            for e in elements
-        }
-        '''
 
     def __repr__(self):
         ptmpl_len = len(self.ptmpl)
@@ -67,33 +57,51 @@ class Polymer():
         return (f'    Polymer Template:  {ptmpl} ({ptmpl_len:,})\n'
                 f'Pair Insertion Rules:  {insrules} ({insrules_len})')
 
+    def build_polymer(self):
+        '''
+        Works, but doesn't scale.
+
+        Largest sequence is over 3 trillion characters - even with 64bit Python
+        this results in a memory error.  Need to count digits without building
+        string.
+        '''
+        polymer_str = self.first
+        polymer = self.polymer.copy()
+        polymer[self.first] -= 1
+        while True:
+            for key, val in polymer.items():
+                if val and key[0] == polymer_str[-1]:
+                    polymer_str += key[1]
+                    polymer[key] -= 1
+            if sum(polymer.values()) == 0:
+                break
+
+        return polymer_str
+
     def diff(self, verbose=True):
-        count = Counter(self.ptmpl)
+        polymer_str = self.build_polymer()
+        count = Counter(polymer_str)
         if verbose:
             print(f'\nCount:  {count}')
         vals = count.values()
         return max(vals) - min(vals)
 
     def step(self):
-        # ptmpl = self.ptmpl[:1]
-        # for p1, p2 in pairwise(self.ptmpl):
-        # for start, stop in enumerate(range(2, len(self.ptmpl) + 1)):
-        '''
-        for top in range(2, len(self.ptmpl) + 1):
-            val = self.ptmpl[top - 2:top]
-            ptmpl += self.insrules[val] + val[1]
-
-        self.ptmpl = ptmpl
-        '''
         polymer = {key: 0 for key in self.insrules}
+        last = ''
         for key, val in self.polymer.items():
             if val:
                 key1, key2 = self.xformrules[key]
+                if key == self.first:
+                    self.first = key1
                 polymer[key1] += val
                 polymer[key2] += val
+                last = key2
 
+        self.last = last
         self.polymer = polymer
 
+        # Too slow...
         # self.ptmpl = ''.join(key * val for key, val in polymer.items())
 
 
@@ -114,15 +122,13 @@ def main(verbose=True):
     polymer = Polymer(ptmpl, insrules)
     print(polymer)
 
-    # Works for 10 steps - fails for 40, believe n^2 growth, need better
-    # approach:
     for n in range(1, 11):
         polymer.step()
         if verbose:
-            print(f'\n                Step:  {n}\n{polymer}')
-            # print(f'\nDifference:  {polymer.diff()}')
+            print(f'\n                Step:  {n}')
             print(f'Polymer:  {polymer.polymer}')
 
+    print(f'Polymer values:  {sum(polymer.polymer.values()):,}')
     print(f'\nDifference:  {polymer.diff()}')
 
 
