@@ -55,7 +55,8 @@ class Polymer():
         if insrules_len > max_items:
             insrules += '...'
         return (f'    Polymer Template:  {ptmpl} ({ptmpl_len:,})\n'
-                f'Pair Insertion Rules:  {insrules} ({insrules_len})')
+                f'Pair Insertion Rules:  {insrules} ({insrules_len})\n'
+                f'               Count:  {Counter(self.ptmpl)}')
 
     def build_polymer(self):
         '''
@@ -78,11 +79,55 @@ class Polymer():
 
         return polymer_str
 
-    def diff(self, verbose=True):
+    def calc_counts(self):
+        polymer = self.polymer.copy()
+        first = ''
+        last = ''
+        count = dict(b=0, c=0, h=0, n=0)
+
+        while sum(polymer.values()):
+            plist = sorted(polymer.items(), key=lambda item: item[1], reverse=True)
+
+            first_key = ''
+            last_key = ''
+            for key, val in plist:
+                if not last:
+                    if not first_key:
+                        first_key = key
+                        first_val = val
+                        continue
+                    if key[0] == first_key[-1]:
+                        last_key = key
+                        last_val = val
+                    else:
+                        continue
+                else:
+                    if not first_key and last[-1] == key[0]:
+                        first_key = key
+                        first_val = val
+                        continue
+                    elif not first_key and first[0] == key[-1]:
+                        first_key = key
+                        first_val = val
+                        continue
+                    if key[0] == first_key[-1]:
+                        last_key = key
+                        last_val = val
+                    else:
+                        continue
+
+                polymer[last_key] = 0
+                polymer[first_key] -= last_val
+                count[first_key[0].lower()] += last_val
+                count[last_key[1].lower()] += last_val
+
+        return count
+
+    def diff(self, verbose=False):
         polymer_str = self.build_polymer()
         count = Counter(polymer_str)
         if verbose:
-            print(f'\nCount:  {count}')
+            print(f'Count:  {count}')
         vals = count.values()
         return max(vals) - min(vals)
 
@@ -127,6 +172,8 @@ def main(verbose=True):
         if verbose:
             print(f'\n                Step:  {n}')
             print(f'Polymer:  {polymer.polymer}')
+            print(f'Count:  {Counter(polymer.build_polymer())}')
+            print(f'Count:  {polymer.calc_counts()}')
 
     print(f'Polymer values:  {sum(polymer.polymer.values()):,}')
     print(f'\nDifference:  {polymer.diff()}')

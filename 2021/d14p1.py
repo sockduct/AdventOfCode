@@ -34,12 +34,13 @@ class Polymer():
         if insrules_len > max_items:
             insrules += '...'
         return (f'    Polymer Template:  {ptmpl} ({ptmpl_len})\n'
-                f'Pair Insertion Rules:  {insrules} ({insrules_len})')
+                f'Pair Insertion Rules:  {insrules} ({insrules_len})\n'
+                f'               Count:  {Counter(self.ptmpl)}')
 
-    def diff(self, verbose=True):
+    def diff(self, verbose=False):
         count = Counter(self.ptmpl)
         if verbose:
-            print(f'\nCount:  {count}')
+            print(f'Count:  {count}')
         vals = count.values()
         return max(vals) - min(vals)
 
