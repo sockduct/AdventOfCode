@@ -80,46 +80,48 @@ class Polymer():
         return polymer_str
 
     def calc_counts(self):
+        '''
+        Works, but doesn't scale - too slow.
+
+        Need to figure out how to group/combine to scale.
+
+        ***CURRENT***
+        '''
         polymer = self.polymer.copy()
-        first = ''
-        last = ''
-        count = dict(b=0, c=0, h=0, n=0)
+        count = dict(B=0, C=0, H=0, N=0)
+
+        cur_key = self.first
+        cur_val = polymer[cur_key]
+        polymer[cur_key] -= 1
+        # First key gets both letters counted - for all others only count 2nd:
+        count[cur_key[0]] += 1
+        count[cur_key[1]] += 1
+        # Sanity check:
+        if not cur_val:
+            raise ValueError('self.polymer[self.first] ({self.first}) is 0')
 
         while sum(polymer.values()):
-            plist = sorted(polymer.items(), key=lambda item: item[1], reverse=True)
+            polymer = sorted(polymer.items(), key=lambda item: item[1], reverse=True)
+            polymer = {key: val for key, val in polymer if val > 0}
 
-            first_key = ''
-            last_key = ''
-            for key, val in plist:
-                if not last:
-                    if not first_key:
-                        first_key = key
-                        first_val = val
-                        continue
-                    if key[0] == first_key[-1]:
-                        last_key = key
-                        last_val = val
-                    else:
-                        continue
-                else:
-                    if not first_key and last[-1] == key[0]:
-                        first_key = key
-                        first_val = val
-                        continue
-                    elif not first_key and first[0] == key[-1]:
-                        first_key = key
-                        first_val = val
-                        continue
-                    if key[0] == first_key[-1]:
-                        last_key = key
-                        last_val = val
-                    else:
-                        continue
+            for next_key, next_val in polymer.items():
+                if next_val and next_key[0] == cur_key[1]:
+                    # Normal:
+                    polymer[next_key] -= 1
+                    cur_key = next_key
+                    '''
+                    if cur_val >= next_val:
+                        polymer[next_key] = 0
+                        polymer[cur_key] -= next_val
 
-                polymer[last_key] = 0
-                polymer[first_key] -= last_val
-                count[first_key[0].lower()] += last_val
-                count[last_key[1].lower()] += last_val
+                        cur_key = next_key
+                    else:
+                        polymer[cur_key] = 0
+                        polymer[next_key] -= cur_val
+                    '''
+
+                    count[next_key[1]] += 1
+
 
         return count
 
@@ -133,17 +135,30 @@ class Polymer():
 
     def step(self):
         polymer = {key: 0 for key in self.insrules}
-        last = ''
+
+        # Deal with first and last:
+        for key in (self.first, self.last):
+            val = self.polymer[key]
+            self.polymer[key] = 0
+
+            if not val:
+                errstr = 'first' if key == self.first else 'last'
+                raise ValueError('self.polymer[{errstr}] ({key}) is 0')
+
+            key1, key2 = self.xformrules[key]
+            if key == self.first:
+                self.first = key1
+            else:
+                self.last = key2
+            polymer[key1] = val
+            polymer[key2] = val
+
         for key, val in self.polymer.items():
             if val:
                 key1, key2 = self.xformrules[key]
-                if key == self.first:
-                    self.first = key1
                 polymer[key1] += val
                 polymer[key2] += val
-                last = key2
 
-        self.last = last
         self.polymer = polymer
 
         # Too slow...
@@ -171,11 +186,13 @@ def main(verbose=True):
         polymer.step()
         if verbose:
             print(f'\n                Step:  {n}')
-            print(f'Polymer:  {polymer.polymer}')
-            print(f'Count:  {Counter(polymer.build_polymer())}')
-            print(f'Count:  {polymer.calc_counts()}')
+            print(f'Polymer:  {sorted(polymer.polymer.items(), key=lambda item: item[1], reverse=True)}')
+            print(f'Polymer String:  {polymer.build_polymer()}')
+            print(f'Actual Count:  {Counter(polymer.build_polymer())}')
+            print(f'Calculated Count:  {polymer.calc_counts()}')
 
-    print(f'Polymer values:  {sum(polymer.polymer.values()):,}')
+    print(f'Actual Count:  {Counter(polymer.build_polymer())}')
+    print(f'Calculated Count:  {polymer.calc_counts()}')
     print(f'\nDifference:  {polymer.diff()}')
 
 
