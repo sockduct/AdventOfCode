@@ -85,6 +85,12 @@ class Polymer():
 
         Need to figure out how to group/combine to scale.
 
+        Tried doing more than 1 at a time, but then run into dead end/infinite
+        loop.  Could try backtracking...
+
+        Before backtracking, see if can work through corner cases of current
+        approach.
+
         ***CURRENT***
         '''
         polymer = self.polymer.copy()
@@ -92,36 +98,42 @@ class Polymer():
 
         cur_key = self.first
         cur_val = polymer[cur_key]
-        polymer[cur_key] -= 1
-        # First key gets both letters counted - for all others only count 2nd:
-        count[cur_key[0]] += 1
-        count[cur_key[1]] += 1
         # Sanity check:
         if not cur_val:
             raise ValueError('self.polymer[self.first] ({self.first}) is 0')
+
+        # First key gets both letters counted - for all others only count 2nd:
+        # But - just count 1st, 2nd will get counted below
+        count[cur_key[0]] += 1
 
         while sum(polymer.values()):
             polymer = sorted(polymer.items(), key=lambda item: item[1], reverse=True)
             polymer = {key: val for key, val in polymer if val > 0}
 
             for next_key, next_val in polymer.items():
-                if next_val and next_key[0] == cur_key[1]:
+                if next_val and next_key != cur_key and next_key[0] == cur_key[1]:
                     # Normal:
-                    polymer[next_key] -= 1
-                    cur_key = next_key
-                    '''
-                    if cur_val >= next_val:
+                    ## polymer[next_key] -= 1
+                    ## cur_key = next_key
+                    if cur_val == 0:
+                        polymer[next_key] -= 1
+                        cur_val = polymer[next_key]
+                        count[next_key[1]] += 1
+                    elif cur_val >= next_val:
                         polymer[next_key] = 0
                         polymer[cur_key] -= next_val
-
-                        cur_key = next_key
+                        if cur_val != next_val:
+                            cur_val = polymer[cur_key]
+                        count[next_key[1]] += next_val
                     else:
                         polymer[cur_key] = 0
                         polymer[next_key] -= cur_val
-                    '''
+                        if cur_val != next_val:
+                            cur_val = polymer[next_key]
+                        count[next_key[1]] += cur_val
 
-                    count[next_key[1]] += 1
-
+                    cur_key = next_key
+                    ## count[next_key[1]] += 1
 
         return count
 
