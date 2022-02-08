@@ -109,31 +109,47 @@ class Polymer():
         while sum(polymer.values()):
             polymer = sorted(polymer.items(), key=lambda item: item[1], reverse=True)
             polymer = {key: val for key, val in polymer if val > 0}
+            decremented = False
 
             for next_key, next_val in polymer.items():
                 if next_val and next_key != cur_key and next_key[0] == cur_key[1]:
                     # Normal:
                     ## polymer[next_key] -= 1
                     ## cur_key = next_key
-                    if cur_val == 0:
+                    if cur_val > next_val and decremented:
+                        break
+                    elif cur_val == 0:
                         polymer[next_key] -= 1
                         cur_val = polymer[next_key]
+                        if cur_key == self.first:
+                            count[cur_key[1]] += 1
                         count[next_key[1]] += 1
                     elif cur_val >= next_val:
                         polymer[next_key] = 0
-                        polymer[cur_key] -= next_val
+                        if cur_key in polymer and (polymer[cur_key] - next_val) > 0:
+                            polymer[cur_key] -= next_val
+                        elif cur_key in polymer:
+                            polymer[cur_key] = 0
                         if cur_val != next_val:
                             cur_val = polymer[cur_key]
+                        if cur_key == self.first:
+                            count[cur_key[1]] += next_val
                         count[next_key[1]] += next_val
                     else:
                         polymer[cur_key] = 0
-                        polymer[next_key] -= cur_val
+                        if (polymer[next_key] - cur_val) > 0:
+                            polymer[next_key] -= 0
+                        else:
+                            polymer[next_key] = 0
                         if cur_val != next_val:
                             cur_val = polymer[next_key]
+                        if cur_key == self.first:
+                            count[cur_key[1]] += cur_val
                         count[next_key[1]] += cur_val
 
+                    decremented = True
                     cur_key = next_key
-                    ## count[next_key[1]] += 1
+                                ## count[next_key[1]] += 1
 
         return count
 
