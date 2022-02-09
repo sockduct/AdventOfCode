@@ -131,7 +131,8 @@ class Polymer():
                         elif cur_key in polymer:
                             polymer[cur_key] = 0
                         if cur_val != next_val:
-                            cur_val = polymer[cur_key]
+                            # cur_val = polymer[cur_key]
+                            cur_val = next_val
                         if cur_key == self.first:
                             count[cur_key[1]] += next_val
                         count[next_key[1]] += next_val
@@ -152,6 +153,14 @@ class Polymer():
                                 ## count[next_key[1]] += 1
 
         return count
+
+    def calc_counts2(self):
+        polymer = self.polymer.copy()
+        count = dict(B=0, C=0, H=0, N=0)
+
+        polymer = sorted(polymer.items(), key=lambda item: item[1], reverse=True)
+        polymer = {key: val for key, val in polymer if val > 0}
+        pass
 
     def diff(self, verbose=False):
         polymer_str = self.build_polymer()
@@ -217,10 +226,11 @@ def main(verbose=True):
             print(f'Polymer:  {sorted(polymer.polymer.items(), key=lambda item: item[1], reverse=True)}')
             print(f'Polymer String:  {polymer.build_polymer()}')
             print(f'Actual Count:  {Counter(polymer.build_polymer())}')
-            print(f'Calculated Count:  {polymer.calc_counts()}')
+            # print(f'Calculated Count:  {polymer.calc_counts()}')
+            print(f'Calculated Count:  {polymer.calc_counts2()}')
 
     print(f'Actual Count:  {Counter(polymer.build_polymer())}')
-    print(f'Calculated Count:  {polymer.calc_counts()}')
+    # print(f'Calculated Count:  {polymer.calc_counts()}')
     print(f'\nDifference:  {polymer.diff()}')
 
 
