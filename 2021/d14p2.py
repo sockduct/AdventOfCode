@@ -1,12 +1,12 @@
 #! /usr/bin/env python3.10
 
 
-from collections import Counter
+from collections import Counter, defaultdict
 from itertools import islice, pairwise
 
 
-INFILE = 'd14p1t1.txt'
-# INFILE = 'd14p1.txt'
+# INFILE = 'd14p1t1.txt'
+INFILE = 'd14p1.txt'
 
 
 '''
@@ -155,18 +155,31 @@ class Polymer():
         return count
 
     def calc_counts2(self):
-        polymer = self.polymer.copy()
-        count = dict(B=0, C=0, H=0, N=0)
+        # count = dict(B=0, C=0, H=0, N=0)
+        count = defaultdict(int)
 
-        polymer = sorted(polymer.items(), key=lambda item: item[1], reverse=True)
-        polymer = {key: val for key, val in polymer if val > 0}
-        pass
+        for key, val in self.polymer.items():
+            count[key[0]] += val
+            count[key[1]] += val
+
+        count[self.first[0]] += 1
+        count[self.last[1]] += 1
+
+        for key in count:
+            count[key] //= 2
+
+        return count
 
     def diff(self, verbose=False):
         polymer_str = self.build_polymer()
         count = Counter(polymer_str)
         if verbose:
             print(f'Count:  {count}')
+        vals = count.values()
+        return max(vals) - min(vals)
+
+    def diff2(self):
+        count = self.calc_counts2()
         vals = count.values()
         return max(vals) - min(vals)
 
@@ -202,7 +215,7 @@ class Polymer():
         # self.ptmpl = ''.join(key * val for key, val in polymer.items())
 
 
-def main(verbose=True):
+def main(verbose=False):
     with open(INFILE) as infile:
         ptmpl = ''
         insrules = {}
@@ -219,19 +232,18 @@ def main(verbose=True):
     polymer = Polymer(ptmpl, insrules)
     print(polymer)
 
-    for n in range(1, 11):
+    for n in range(1, 41):
         polymer.step()
         if verbose:
             print(f'\n                Step:  {n}')
             print(f'Polymer:  {sorted(polymer.polymer.items(), key=lambda item: item[1], reverse=True)}')
             print(f'Polymer String:  {polymer.build_polymer()}')
             print(f'Actual Count:  {Counter(polymer.build_polymer())}')
-            # print(f'Calculated Count:  {polymer.calc_counts()}')
             print(f'Calculated Count:  {polymer.calc_counts2()}')
+            print(f'First={polymer.first}, Last={polymer.last}')
 
-    print(f'Actual Count:  {Counter(polymer.build_polymer())}')
-    # print(f'Calculated Count:  {polymer.calc_counts()}')
-    print(f'\nDifference:  {polymer.diff()}')
+    # print(f'Actual Count:  {Counter(polymer.build_polymer())}')
+    print(f'\nDifference:  {polymer.diff2()}')
 
 
 if __name__ == '__main__':
