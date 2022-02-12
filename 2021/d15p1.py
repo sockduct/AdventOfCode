@@ -1,6 +1,9 @@
 #! /usr/bin/env python3.10
 
 
+from graph import Graph
+
+
 INFILE = 'd15p1t1.txt'
 # INFILE = 'd15p1.txt'
 
@@ -33,27 +36,26 @@ Thoughts on Approach:
 * Convert number matrix into weighted graph and then use Dijkstra's shortest
   path first algorithm to find least cost path
 '''
-class Map():
-    def __init__(self, matrix):
-        self.matrix = matrix
-
-    def __repr__(self):
-        output = '/| Map: |\\\n'
-        for row in self.matrix:
-            output += row
-            output += '\n'
-
-        return output
-
-
 def main():
     matrix = []
     with open(INFILE) as infile:
-        for line in infile:
-            matrix.append(line.strip())
+        matrix.extend([int(e) for e in line.strip()] for line in infile)
 
-    map = Map(matrix)
-    print(map)
+    cavern = Graph(directed=True)
+    for row, line in enumerate(matrix):
+        cur_vertex = None
+        for col, val in enumerate(line):
+            left_vertex = cur_vertex
+            cur_vertex = cavern.insert_vertex((row, col))
+            if left_vertex:
+                cavern.insert_edge(left_vertex, cur_vertex, val)
+            if row > 0:
+                up_vertex = cavern.get_vertex((row - 1, col))
+                cavern.insert_edge(up_vertex, cur_vertex, val)
+
+    from pprint import pprint
+    pprint(matrix)
+    print(f'\n{cavern}')
 
 
 if __name__ == '__main__':
