@@ -4,22 +4,16 @@
 from graph import Graph
 
 
-INFILE = 'd15p1t1.txt'
+INFILE = 'd15p1t1a.txt'
+# INFILE = 'd15p1t1.txt'
 # INFILE = 'd15p1.txt'
 
 
 '''
 Map:
-1163751742
-1381373672
-2136511328
-3694931569
-7463417111
-1319128137
-1359912421
-3125421639
-1293138521
-2311944581
+116
+138
+213
 
 Directions:
 * Start in top left
@@ -44,14 +38,19 @@ def main():
     cavern = Graph(directed=True)
     for row, line in enumerate(matrix):
         cur_vertex = None
+        cur_val = 0
         for col, val in enumerate(line):
             left_vertex = cur_vertex
+            left_val = cur_val
             cur_vertex = cavern.insert_vertex((row, col))
+            cur_val = val
             if left_vertex:
-                cavern.insert_edge(left_vertex, cur_vertex, val)
+                cavern.insert_uni_edge(left_vertex, cur_vertex, cur_val)
+                cavern.insert_uni_edge(cur_vertex, left_vertex, left_val)
             if row > 0:
                 up_vertex = cavern.get_vertex((row - 1, col))
-                cavern.insert_edge(up_vertex, cur_vertex, val)
+                cavern.insert_uni_edge(up_vertex, cur_vertex, cur_val)
+                cavern.insert_uni_edge(cur_vertex, up_vertex, matrix[row - 1][col])
 
     from pprint import pprint
     pprint(matrix)

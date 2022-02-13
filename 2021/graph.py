@@ -29,10 +29,10 @@ class Graph:
         return graph
 
     def __str__(self):
-        max_width = 6
+        max_width = 5
         directed = 'Directed Graph' if self.is_directed() else 'Undirected Graph'
         vertices = self.format_output(self.vertices(), max_width)
-        edges = self.format_output(self.edges(), max_width - 1)
+        edges = self.format_output(self.edges(), max_width - 2)
         return f'{directed}\nVertices:    {vertices}\n     Edges:    {edges}'
 
     def _validate_vertex(self, v):
@@ -71,7 +71,7 @@ class Graph:
 
         return result
 
-    def format_output(self, values, max_width=6):
+    def format_output(self, values, max_width=5):
         raw_values = sorted(repr(k) for k in values)
         fmt_values = ''
         if (values := len(raw_values)) > max_width:
@@ -121,6 +121,27 @@ class Graph:
         if directed:
             e_in = self.Edge(v, u, label, directed)
             self._outgoing[v][u] = e_in
+            self._incoming[u][v] = e_in
+
+    def insert_uni_edge(self, u, v, label=None):
+        """insert and return a new edge from u to v with auxiliary label.
+
+        raise a ValueError if u and v are not vertices of the graph.
+        raise a ValueError if u and v are already adjacent.
+        """
+        if self.get_edge(u, v) is not None:            # includes error checking
+            raise ValueError('u and v are already adjacent')
+
+        directed = self.is_directed()
+        e_out = self.Edge(u, v, label, directed)
+
+        self._outgoing[u][v] = e_out
+        if not directed:
+            self._incoming[v][u] = e_out
+
+        if directed:
+            e_in = self.Edge(v, u, label, directed)
+            # self._outgoing[v][u] = e_in
             self._incoming[u][v] = e_in
 
     def insert_vertex(self, label):
