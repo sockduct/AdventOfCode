@@ -2,6 +2,7 @@
 
 
 from graph import Graph
+from shortest_paths import shortest_path_lengths
 
 
 INFILE = 'd15p1t1a.txt'
@@ -52,9 +53,14 @@ def main():
                 cavern.insert_uni_edge(up_vertex, cur_vertex, cur_val)
                 cavern.insert_uni_edge(cur_vertex, up_vertex, matrix[row - 1][col])
 
+    spf_lens = shortest_path_lengths(cavern, (0, 0))
+
     from pprint import pprint
+    pprint(spf_lens)
+    '''
     pprint(matrix)
     print(f'\n{cavern}')
+    '''
 
 
 if __name__ == '__main__':
