@@ -9,9 +9,9 @@ from graph import Graph
 from shortest_paths import shortest_path_lengths
 
 
-INFILE = 'd15p1t1a.txt'
+# INFILE = 'd15p1t1a.txt'
 # INFILE = 'd15p1t1.txt'
-# INFILE = 'd15p1.txt'
+INFILE = 'd15p1.txt'
 
 
 '''
@@ -41,20 +41,31 @@ Thoughts on Approach:
 def magnify(matrix, factor):
     rows = len(matrix)
     cols = rows
+    row_width = rows * factor
+    mult = factor - 1  # Matrix expansion multiplier
+    new_cols = 2 * mult  # How many incremented column groups to add
+
+    # Add enough empty rows to expand out matrix:
+    for _ in range(rows * mult):
+        matrix.append([])
 
     for row in range(rows):
-        inc_row = matrix[row]
-        for i in range(factor - 1):
+        inc_row = matrix[row].copy()
+        new_col_group = []
+        # Build out enough new row groups for across and down:
+        for _ in range(new_cols):
             inc_row = [(col + 1 if col < 9 else 1) for col in inc_row]
-            matrix[row].extend(inc_row)
-            if i == 0:
-                matrix.append(inc_row)
-            else:
-                matrix[rows + row].extend(inc_row)
-        '''
-        inc_row = [(col + 1 if col < 9 else 1) for col in matrix[rows + row]]
-        matrix[rows + row].extend(inc_row)
-        '''
+            new_col_group.extend(inc_row)
+
+        # Expand out current row:
+        matrix[row].extend(new_col_group[:cols * mult])
+
+        # Build out new rows:
+        for new_row_mult in range(mult):
+            start_col = cols * new_row_mult
+            end_col = start_col + row_width
+            cur_row = (rows * (new_row_mult + 1)) + row
+            matrix[cur_row].extend(new_col_group[start_col:end_col])
 
     return matrix
 
@@ -64,9 +75,11 @@ def main():
     with open(INFILE) as infile:
         matrix.extend([int(e) for e in line.strip()] for line in infile)
 
-    matrix = magnify(matrix, 3)
+    matrix = magnify(matrix, 5)
+    '''
     pprint(matrix)
     return 0
+    '''
 
     cavern = Graph(directed=True)
     for row, line in enumerate(matrix):
