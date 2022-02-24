@@ -65,68 +65,101 @@ the version numbers.
 class Packet():
     def __init__(self, hexdata):
         self.hexdata = hexdata
+        # This needs to be a multiple of 4, but this conversion strips leading
+        # 0's, so we need to add them back:
         self.bindata = bin(int(hexdata, 16))[2:]
+        self.bindata = '0' * (len(self.bindata) % 4) + self.bindata
+
+        self._pointer = 0
 
     def __repr__(self):
         return f'<Packet({self.hexdata})>'
 
-    def get_lval(self, data):
-        pointer = 0
+    def get_lval(self):
         bindata = ''
 
-        while pointer < len(data):
-            if data[pointer] == '1':
-                bindata += data[pointer + 1:pointer + 5]
-                pointer += 5
+        while self._pointer < len(self.bindata):
+            # Digit group, more follow:
+            if self.bindata[self._pointer] == '1':
+                bindata += self.bindata[self._pointer + 1:self._pointer + 5]
+                self._pointer += 5
             # Last digit group:
-            elif data[pointer] == '0':
-                bindata += data[pointer + 1:pointer + 5]
-                pointer += 5
+            elif self.bindata[self._pointer] == '0':
+                bindata += self.bindata[self._pointer + 1:self._pointer + 5]
+                self._pointer += 5
                 break
+            # Parse error/invalid packet:
             else:
-                raise ValueError(f'Expected value of 0 or 1, got {data[pointer]}')
+                raise ValueError(f'Expected value of 0 or 1, got {self.bindata[self._pointer]}')
 
-        return int(bindata, 2), pointer
+        return int(bindata, 2)
 
     def process(self):
-        pointer = 0
         plen = len(self.bindata)
-        new_packet = True
 
-        while pointer < plen:
-            if new_packet:
-                pver = self.bindata[pointer:pointer + 3]
-                ptype = self.bindata[pointer + 3:pointer + 6]
-                pointer += 6
+        sub_packets = False
+        while self._pointer < plen:
+            pver = int(self.bindata[self._pointer:self._pointer + 3], 2)
+            ptype = int(self.bindata[self._pointer + 3:self._pointer + 6], 2)
+            self._pointer += 6
 
-                # Literal value packet:
-                if ptype == '100':
-                    pdigit, inc = self.get_lval(self.bindata[pointer:])
-                    pointer += inc
-                # Operator packet:
+            # Literal value packet:
+            if ptype == 4:
+                pdigit = self.get_lval()
+                poptlv = ('digit', pdigit)  # Packet operation - type, length, value
+            # Operator packet:
+            else:
+                # Get length type indicator bit:
+                pind = self.bindata[self._pointer]
+                self._pointer += 1
+
+                sub_packets = True
+                # Next 15 bits are bit length of sub-packets
+                if pind == '0':
+                    poptlv = ('bits', int(self.bindata[self._pointer:self._pointer + 15], 2))
+                    self._pointer += 15
+                    # Process sub-packet(s) in next iteration...
+                    ### Count/limit bits processed to bit number?
+                # Next 11 bits are number of sub-packets
+                elif pind == '1':
+                    poptlv = ('packets', int(self.bindata[self._pointer:self._pointer + 11], 2))
+                    self._pointer += 11
+                    # Process sub-packet(s) in next iteration...
+                    ### Count/limit bits processed to packet number?
+                # Parse error/invalid packet:
                 else:
-                    pind = self.bindata[pointer + 6]
-                    if pind == '0':
-                        ...
-                    elif pind == '1':
-                        ...
-                    else:
-                        raise ValueError(f'Expected value of 0 or 1, got {pind}')
+                    raise ValueError(f'Expected value of 0 or 1, got {pind}')
 
-                if int(self.bindata[pointer:], 2) == 0:
-                    pzeros = plen - pointer
-                    break
-                else:
-                    raise ValueError('Unexpected non-zero trailing digits:  '
-                                    f'{self.bindata[pointer:]}')
+            digits_left = plen - self._pointer
+            if int(self.bindata[self._pointer:], 2) == 0:
+                poprem = ('zeroes', digits_left)  # Packet operation - what's remaining
+                break
+            else:
+                poprem = ('non-zeroes', digits_left)
+                # raise ValueError('Unexpected non-zero trailing digits:  {self.bindata[self._pointer:]}')
+                ### Temporary...
+                break
 
-        print(f'Found packet:\nVersion={int(pver, 2)}, Type={int(ptype, 2)}, Digit={pdigit}, '
-              f'Trailing Zeros={pzeros}')
+        print(f'Found packet:\nVersion={pver}, Type={ptype}, Value={poptlv[1]} '
+              f'({poptlv[0]}), Remaining Digits={poprem[1]} ({poprem[0]})')
+
+        '''
+        if sub_packets:
+            print(f'Subpackets present:\nDigit={pdigit}')
+        '''
+
+        # Is packet processed (only 0's remain?)
+        return poprem[0] == 'zeroes'
 
 
 def main():
-    packet = Packet('D2FE28')
-    packet.process()
+    for packet_data in ('D2FE28', '38006F45291200', 'EE00D40C823060', '8A004A801A8002F478',
+                        '620080001611562C8802118E34', 'C0015000016115A2E0802F182340',
+                        'A0016C880162017C3686B18A3D4780'):
+        print(f'\nRead in packet:  {packet_data}')
+        packet = Packet(packet_data)
+        while not packet.process():
+            continue
 
 
 if __name__ == '__main__':
