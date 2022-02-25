@@ -1,8 +1,7 @@
 #! /usr/bin/env python3.10
 
 
-INFILE = 'd16p1t1.txt'
-# INFILE = 'd16p1.txt'
+INFILE = 'd16p1.txt'
 
 
 '''
@@ -68,7 +67,8 @@ class Packet():
         # This needs to be a multiple of 4, but this conversion strips leading
         # 0's, so we need to add them back:
         self.bindata = bin(int(hexdata, 16))[2:]
-        self.bindata = '0' * (len(self.bindata) % 4) + self.bindata
+        if (extra_ditits := len(self.bindata) % 4) > 0:
+            self.bindata = '0' * (4 - extra_ditits) + self.bindata
 
         self._pointer = 0
 
@@ -96,10 +96,12 @@ class Packet():
 
     def process(self):
         plen = len(self.bindata)
+        more_nonzeroes = True
+        version_sum = 0
 
-        sub_packets = False
-        while self._pointer < plen:
+        while self._pointer < plen and more_nonzeroes:
             pver = int(self.bindata[self._pointer:self._pointer + 3], 2)
+            version_sum += pver
             ptype = int(self.bindata[self._pointer + 3:self._pointer + 6], 2)
             self._pointer += 6
 
@@ -113,7 +115,6 @@ class Packet():
                 pind = self.bindata[self._pointer]
                 self._pointer += 1
 
-                sub_packets = True
                 # Next 15 bits are bit length of sub-packets
                 if pind == '0':
                     poptlv = ('bits', int(self.bindata[self._pointer:self._pointer + 15], 2))
@@ -133,33 +134,28 @@ class Packet():
             digits_left = plen - self._pointer
             if int(self.bindata[self._pointer:], 2) == 0:
                 poprem = ('zeroes', digits_left)  # Packet operation - what's remaining
-                break
+                more_nonzeroes = False
             else:
                 poprem = ('non-zeroes', digits_left)
-                # raise ValueError('Unexpected non-zero trailing digits:  {self.bindata[self._pointer:]}')
-                ### Temporary...
-                break
 
-        print(f'Found packet:\nVersion={pver}, Type={ptype}, Value={poptlv[1]} '
-              f'({poptlv[0]}), Remaining Digits={poprem[1]} ({poprem[0]})')
+            print(f'Found packet:\nVersion={pver}, Type={ptype}, Value={poptlv[1]} '
+                f'({poptlv[0]}), Remaining Digits={poprem[1]} ({poprem[0]})')
 
-        '''
-        if sub_packets:
-            print(f'Subpackets present:\nDigit={pdigit}')
-        '''
-
-        # Is packet processed (only 0's remain?)
-        return poprem[0] == 'zeroes'
+        print(f'Version sum:  {version_sum}')
 
 
 def main():
+    '''
+    # Test data:
     for packet_data in ('D2FE28', '38006F45291200', 'EE00D40C823060', '8A004A801A8002F478',
                         '620080001611562C8802118E34', 'C0015000016115A2E0802F182340',
                         'A0016C880162017C3686B18A3D4780'):
         print(f'\nRead in packet:  {packet_data}')
-        packet = Packet(packet_data)
-        while not packet.process():
-            continue
+    '''
+    with open(INFILE) as infile:
+        packet_data = infile.read().strip()
+    packet = Packet(packet_data)
+    packet.process()
 
 
 if __name__ == '__main__':
