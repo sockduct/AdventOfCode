@@ -4,6 +4,10 @@
 INFILE = 'd16p1.txt'
 
 
+from math import prod
+import re
+
+
 '''
 Transmission:  D2FE28 - literal value packet
 Convert into binary:
@@ -83,6 +87,10 @@ class Packet():
         if (extra_ditits := len(self.bindata) % 4) > 0:
             self.bindata = '0' * (4 - extra_ditits) + self.bindata
 
+        # Check for leading 0's:
+        if (leading_zeroes := re.match(r'(0+)', self.hexdata)):
+            self.bindata = '0' * (len(leading_zeroes.group(1)) * 4) + self.bindata
+
         self._pointer = 0
 
     def __repr__(self):
@@ -110,13 +118,21 @@ class Packet():
     def process(self):
         plen = len(self.bindata)
         more_nonzeroes = True
-        version_sum = 0
         op_stack = []
 
         while self._pointer < plen and more_nonzeroes:
             pver = int(self.bindata[self._pointer:self._pointer + 3], 2)
-            version_sum += pver
             ptype = int(self.bindata[self._pointer + 3:self._pointer + 6], 2)
+            match ptype:
+                case 0: pdescr = 'sum packet'
+                case 1: pdescr = 'product packet'
+                case 2: pdescr = 'minimum packet'
+                case 3: pdescr = 'maximum packet'
+                case 4: pdescr = 'literal-value packet'
+                case 5: pdescr = 'greater-than packet (T|F - 2 packets)'
+                case 6: pdescr = 'less-than packet (T|F - 2 packets)'
+                case 7: pdescr = 'equal-to packet (T|F - 2 packets)'
+                case _: raise ValueError('Expected type in range 0-7, got {ptype}')
             self._pointer += 6
 
             # Literal value packet:
@@ -151,27 +167,58 @@ class Packet():
                     raise ValueError(f'Expected value of 0 or 1, got {pind}')
 
             digits_left = plen - self._pointer
-            if int(self.bindata[self._pointer:], 2) == 0:
+            if digits_left == 0:
+                poprem = ('nothing remaining', digits_left)
+            elif int(self.bindata[self._pointer:], 2) == 0:
                 poprem = ('zeroes', digits_left)  # Packet operation - what's remaining
                 more_nonzeroes = False
             else:
                 poprem = ('non-zeroes', digits_left)
 
-            print(f'Found packet:\nVersion={pver}, Type={ptype}, Value={poptlv[1]} '
+            print(f'Found packet:  Version={pver}, Type={ptype} ({pdescr}), Value={poptlv[1]} '
                 f'({poptlv[0]}), Remaining Digits={poprem[1]} ({poprem[0]})')
 
-        print(f'Version sum:  {version_sum}')
+        for item in op_stack:
+            match (key := list(item.keys())[0]):
+                case 0: res = sum(item[0])
+                case 1: res = prod(item[1])
+                case 2: res = min(item[2])
+                case 3: res = max(item[3])
+                case 4: res = item[4]
+                case 5:
+                    if len(item[5]) != 2:
+                        raise ValueError(f'Expected exactly two arguments, got:  {item[5]}')
+                    res = 1 if item[5][0] > item[5][1] else 0
+                case 6:
+                    if len(item[6]) != 2:
+                        raise ValueError(f'Expected exactly two arguments, got:  {item[6]}')
+                    res = 1 if item[6][0] > item[6][1] else 0
+                case 7:
+                    if len(item[7]) != 2:
+                        raise ValueError(f'Expected exactly two arguments, got:  {item[7]}')
+                    res = 1 if item[7][0] > item[7][1] else 0
+                case _: raise ValueError('Expected type in range 0-7, got {ptype}')
+
         print(f'Operations stack:  {op_stack}')
+        print(f'Result:  {res}')
 
 
 def main():
     # Test data:
-    for packet_data in ('D2FE28', '38006F45291200', 'EE00D40C823060', '8A004A801A8002F478',
-                        '620080001611562C8802118E34', 'C0015000016115A2E0802F182340',
-                        'A0016C880162017C3686B18A3D4780'):
+    for packet_data, expected_result in (
+        ('C200B40A82', 3),  # Finds the sum of 1 and 2, resulting in the value 3
+        ('04005AC33890', 54),  # Finds the product of 6 and 9, resulting in the value 54
+        ('880086C3E88112', 7),  # Finds the minimum of 7, 8, and 9, resulting in the value 7
+        ('CE00C43D881120', 9),  # Finds the maximum of 7, 8, and 9, resulting in the value 9
+        ('D8005AC2A8F0', 1),  # Produces 1, because 5 is less than 15
+        ('F600BC2D8F', 0),  # Produces 0, because 5 is not greater than 15
+        ('9C005AC2F8F0', 0),  # Produces 0, because 5 is not equal to 15
+        ('9C0141080250320F1802104A08', 1)  # Produces 1, because 1 + 3 = 2 * 2
+    ):
         print(f'\nRead in packet:  {packet_data}')
         packet = Packet(packet_data)
         packet.process()
+        print(f'Answer should be {expected_result}')
     '''
     with open(INFILE) as infile:
         packet_data = infile.read().strip()
