@@ -96,6 +96,45 @@ class Packet():
     def __repr__(self):
         return f'<Packet({self.hexdata})>'
 
+    def calculate(self, op_stack):
+        '''
+        * 0 - sum of sub-packets
+        * 1 - product of sub-packets
+        * 2 - minimum of sub-packets
+        * 3 - maximum of sub-packets
+        * 4 - literal value packet
+        * 5 - > packet:  1 if 1st sub-packet > 2nd sub-packet else 0
+        * 6 - < packet:  1 if 1st sub-packet < 2nd sub-packet else 0
+        * 7 - = to packet:  1 if 1st sub-packet == 2nd sub-packet else 0
+        '''
+        '''
+        Change to work from "top" of stack backwards:
+        '''
+        for item in op_stack:
+            match (key := list(item.keys())[0]):
+                case 0: res = sum(item[0])
+                case 1: res = prod(item[1])
+                case 2: res = min(item[2])
+                case 3: res = max(item[3])
+                case 4: res = item[4]
+                case 5:
+                    if len(item[5]) != 2:
+                        raise ValueError(f'Expected exactly two arguments, got:  {item[5]}')
+                    res = 1 if item[5][0] > item[5][1] else 0
+                case 6:
+                    if len(item[6]) != 2:
+                        raise ValueError(f'Expected exactly two arguments, got:  {item[6]}')
+                    res = 1 if item[6][0] < item[6][1] else 0
+                case 7:
+                    if len(item[7]) != 2:
+                        raise ValueError(f'Expected exactly two arguments, got:  {item[7]}')
+                    res = 1 if item[7][0] == item[7][1] else 0
+                case _: raise ValueError('Expected type in range 0-7, got {ptype}')
+
+        print(f'Operations stack:  {op_stack}')
+        print(f'Result:  {res}')
+
+
     def get_lval(self):
         bindata = ''
 
@@ -178,29 +217,7 @@ class Packet():
             print(f'Found packet:  Version={pver}, Type={ptype} ({pdescr}), Value={poptlv[1]} '
                 f'({poptlv[0]}), Remaining Digits={poprem[1]} ({poprem[0]})')
 
-        for item in op_stack:
-            match (key := list(item.keys())[0]):
-                case 0: res = sum(item[0])
-                case 1: res = prod(item[1])
-                case 2: res = min(item[2])
-                case 3: res = max(item[3])
-                case 4: res = item[4]
-                case 5:
-                    if len(item[5]) != 2:
-                        raise ValueError(f'Expected exactly two arguments, got:  {item[5]}')
-                    res = 1 if item[5][0] > item[5][1] else 0
-                case 6:
-                    if len(item[6]) != 2:
-                        raise ValueError(f'Expected exactly two arguments, got:  {item[6]}')
-                    res = 1 if item[6][0] > item[6][1] else 0
-                case 7:
-                    if len(item[7]) != 2:
-                        raise ValueError(f'Expected exactly two arguments, got:  {item[7]}')
-                    res = 1 if item[7][0] > item[7][1] else 0
-                case _: raise ValueError('Expected type in range 0-7, got {ptype}')
-
-        print(f'Operations stack:  {op_stack}')
-        print(f'Result:  {res}')
+        self.calculate(op_stack)
 
 
 def main():
@@ -215,14 +232,18 @@ def main():
         ('9C005AC2F8F0', 0),  # Produces 0, because 5 is not equal to 15
         ('9C0141080250320F1802104A08', 1)  # Produces 1, because 1 + 3 = 2 * 2
     ):
+
         print(f'\nRead in packet:  {packet_data}')
         packet = Packet(packet_data)
         packet.process()
         print(f'Answer should be {expected_result}')
-    '''
+
+    # Actual data:
     with open(INFILE) as infile:
         packet_data = infile.read().strip()
-    '''
+
+    packet = Packet(packet_data)
+    packet.process()
 
 
 if __name__ == '__main__':
