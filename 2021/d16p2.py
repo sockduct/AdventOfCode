@@ -106,30 +106,78 @@ class Packet():
         * 5 - > packet:  1 if 1st sub-packet > 2nd sub-packet else 0
         * 6 - < packet:  1 if 1st sub-packet < 2nd sub-packet else 0
         * 7 - = to packet:  1 if 1st sub-packet == 2nd sub-packet else 0
+
+        ### Need to account for bit length|packet count embedded in operator
+        ### packets to figure out how many literal-value packets they
+        ### ``consume''
         '''
-        '''
-        Change to work from "top" of stack backwards:
-        '''
-        for item in op_stack:
+        values = []
+        while op_stack:
+            item = op_stack.pop()
             match (key := list(item.keys())[0]):
-                case 0: res = sum(item[0])
-                case 1: res = prod(item[1])
-                case 2: res = min(item[2])
-                case 3: res = max(item[3])
+                case 0:
+                    if item[0]:
+                        res = sum(item[0])
+                    elif values:
+                        res = sum(values)
+                        values.clear()
+                    else:
+                        raise ValueError(f'Expected at least one argument, found none')
+                case 1:
+                    if item[1]:
+                        res = prod(item[1])
+                    elif values:
+                        res = prod(values)
+                        values.clear()
+                    else:
+                        raise ValueError(f'Expected at least one argument, found none')
+                case 2:
+                    if item[2] and values:
+                        res = min(item[2] + values)
+                        values.clear()
+                    elif item[2]:
+                        res = min(item[2])
+                    elif values:
+                        res = min(values)
+                        values.clear()
+                    else:
+                        raise ValueError(f'Expected at least one argument, found none')
+                case 3:
+                    if item[3] and values:
+                        res = max(item[3] + values)
+                        values.clear()
+                    elif item[3]:
+                        res = max(item[3])
+                    elif values:
+                        res = max(values)
+                        values.clear()
+                    else:
+                        raise ValueError(f'Expected at least one argument, found none')
                 case 4: res = item[4]
                 case 5:
-                    if len(item[5]) != 2:
+                    if len(item[5]) == 2:
+                        res = 1 if item[5][0] > item[5][1] else 0
+                    elif len(values) == 2:
+                        res = 1 if values[0] > values[1] else 0
+                    else:
                         raise ValueError(f'Expected exactly two arguments, got:  {item[5]}')
-                    res = 1 if item[5][0] > item[5][1] else 0
                 case 6:
-                    if len(item[6]) != 2:
+                    if len(item[6]) == 2:
+                        res = 1 if item[6][0] < item[6][1] else 0
+                    elif len(values) == 2:
+                        res = 1 if values[0] < values[1] else 0
+                    else:
                         raise ValueError(f'Expected exactly two arguments, got:  {item[6]}')
-                    res = 1 if item[6][0] < item[6][1] else 0
                 case 7:
-                    if len(item[7]) != 2:
+                    if len(item[7]) == 2:
+                        res = 1 if item[7][0] == item[7][1] else 0
+                    elif len(values) == 2:
+                        res = 1 if values[0] == values[1] else 0
+                    else:
                         raise ValueError(f'Expected exactly two arguments, got:  {item[7]}')
-                    res = 1 if item[7][0] == item[7][1] else 0
                 case _: raise ValueError('Expected type in range 0-7, got {ptype}')
+
+            values.append(res)
 
         print(f'Operations stack:  {op_stack}')
         print(f'Result:  {res}')
@@ -154,12 +202,15 @@ class Packet():
 
         return int(bindata, 2)
 
+
+    ### Need to figure out how to capture bit length for each packet and retain for later:
     def process(self):
         plen = len(self.bindata)
         more_nonzeroes = True
         op_stack = []
 
         while self._pointer < plen and more_nonzeroes:
+            bit_start = self._pointer
             pver = int(self.bindata[self._pointer:self._pointer + 3], 2)
             ptype = int(self.bindata[self._pointer + 3:self._pointer + 6], 2)
             match ptype:
@@ -168,9 +219,9 @@ class Packet():
                 case 2: pdescr = 'minimum packet'
                 case 3: pdescr = 'maximum packet'
                 case 4: pdescr = 'literal-value packet'
-                case 5: pdescr = 'greater-than packet (T|F - 2 packets)'
-                case 6: pdescr = 'less-than packet (T|F - 2 packets)'
-                case 7: pdescr = 'equal-to packet (T|F - 2 packets)'
+                case 5: pdescr = 'greater-than packet'  # T|F - 2 packets
+                case 6: pdescr = 'less-than packet'  # T|F - 2 packets
+                case 7: pdescr = 'equal-to packet'  # T|F - 2 packets
                 case _: raise ValueError('Expected type in range 0-7, got {ptype}')
             self._pointer += 6
 
@@ -184,7 +235,6 @@ class Packet():
                     list(op_stack[-1].values())[0].append(pdigit)
             # Operator packet:
             else:
-                op_stack.append({ptype: []})
                 # Get length type indicator bit:
                 pind = self.bindata[self._pointer]
                 self._pointer += 1
@@ -205,6 +255,10 @@ class Packet():
                 else:
                     raise ValueError(f'Expected value of 0 or 1, got {pind}')
 
+                op_stack.append({ptype: [], poptlv[0]: poptlv[1]})
+
+            bit_len = self._pointer - bit_start
+
             digits_left = plen - self._pointer
             if digits_left == 0:
                 poprem = ('nothing remaining', digits_left)
@@ -215,7 +269,8 @@ class Packet():
                 poprem = ('non-zeroes', digits_left)
 
             print(f'Found packet:  Version={pver}, Type={ptype} ({pdescr}), Value={poptlv[1]} '
-                f'({poptlv[0]}), Remaining Digits={poprem[1]} ({poprem[0]})')
+                  f'({poptlv[0]}), Bit length={bit_len}, Remaining Digits='
+                  f'{poprem[1]} ({poprem[0]})')
 
         self.calculate(op_stack)
 
@@ -237,6 +292,7 @@ def main():
         packet = Packet(packet_data)
         packet.process()
         print(f'Answer should be {expected_result}')
+    print('\n')
 
     # Actual data:
     with open(INFILE) as infile:
