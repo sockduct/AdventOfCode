@@ -96,6 +96,59 @@ class Packet():
     def __repr__(self):
         return f'<Packet({self.hexdata})>'
 
+    def _calc_helper(self, item, values, op, value_stack, arg_count=0):
+        if item.get('packets'):
+            item_type = 'packets'
+            item_count = item['packets']
+        elif item.get('bits'):
+            item_type = 'bits'
+            item_count = item['bits']
+
+        '''
+        Cases:
+        1) Packet/bit count in op packet = payload
+        2) Packet/bit count in op packet < payload (warning and discard extras)
+        3) Packet/bit count in op packet > payload:
+           Add from value_stack - exception if insufficient data
+        '''
+
+        if item_type == 'packets':
+            value_count = len(values)
+        elif item_type == 'bits':
+            value_count = sum(value[1] for value in values)
+        else:
+            raise ValueError(f'Expected item type of packets or bits ({item})')
+
+        if item_count == value_count:
+            res = op(value[0] for value in values)
+        elif item_count < value_count:
+            value_tally = 0
+            value_subset = []
+            for value in values:
+                value_subset.append(value[0])
+                value_tally += value[1]
+                if value_tally == item_count:
+                    break
+                elif value_tally > item_count:
+                    raise ValueError('Value tally exceeds item count')
+            res = op(value_subset)
+        elif item_count > value_count and value_stack:
+            value_tally = value_count
+            value_subset = values.copy()
+            while True:
+                value = value_stack.pop()
+                value_subset.append(value)
+                value_tally += value[1]
+                if value_tally == item_count:
+                    break
+                elif value_tally > item_count:
+                    raise ValueError('Value tally exceeds item count')
+            res = op(value[0] for value in values)
+        else:
+            raise ValueError(f'Insufficient number of arguments ({item=}, {value_stack=})')
+
+        return res
+
     def calculate(self, op_stack):
         '''
         * 0 - sum of sub-packets
@@ -111,73 +164,61 @@ class Packet():
         ### packets to figure out how many literal-value packets they
         ### ``consume''
         '''
-        values = []
+        value_stack = []
         while op_stack:
             item = op_stack.pop()
             match (key := list(item.keys())[0]):
                 case 0:
-                    if item[0]:
-                        res = sum(item[0])
-                    elif values:
-                        res = sum(values)
-                        values.clear()
-                    else:
-                        raise ValueError(f'Expected at least one argument, found none')
+                    res = self._calc_helper(item, item[0], sum, value_stack)
                 case 1:
-                    if item[1]:
-                        res = prod(item[1])
-                    elif values:
-                        res = prod(values)
-                        values.clear()
-                    else:
-                        raise ValueError(f'Expected at least one argument, found none')
+                    res = self._calc_helper(item, item[1], prod, value_stack)
                 case 2:
-                    if item[2] and values:
-                        res = min(item[2] + values)
-                        values.clear()
+                    if item[2] and value_stack:
+                        res = min(item[2] + value_stack)
+                        value_stack.clear()
                     elif item[2]:
                         res = min(item[2])
-                    elif values:
-                        res = min(values)
-                        values.clear()
+                    elif value_stack:
+                        res = min(value_stack)
+                        value_stack.clear()
                     else:
                         raise ValueError(f'Expected at least one argument, found none')
                 case 3:
-                    if item[3] and values:
-                        res = max(item[3] + values)
-                        values.clear()
+                    if item[3] and value_stack:
+                        res = max(item[3] + value_stack)
+                        value_stack.clear()
                     elif item[3]:
                         res = max(item[3])
-                    elif values:
-                        res = max(values)
-                        values.clear()
+                    elif value_stack:
+                        res = max(value_stack)
+                        value_stack.clear()
                     else:
                         raise ValueError(f'Expected at least one argument, found none')
                 case 4: res = item[4]
                 case 5:
                     if len(item[5]) == 2:
                         res = 1 if item[5][0] > item[5][1] else 0
-                    elif len(values) == 2:
-                        res = 1 if values[0] > values[1] else 0
+                    elif len(value_stack) == 2:
+                        res = 1 if value_stack[0] > value_stack[1] else 0
                     else:
                         raise ValueError(f'Expected exactly two arguments, got:  {item[5]}')
                 case 6:
                     if len(item[6]) == 2:
                         res = 1 if item[6][0] < item[6][1] else 0
-                    elif len(values) == 2:
-                        res = 1 if values[0] < values[1] else 0
+                    elif len(value_stack) == 2:
+                        res = 1 if value_stack[0] < value_stack[1] else 0
                     else:
                         raise ValueError(f'Expected exactly two arguments, got:  {item[6]}')
                 case 7:
                     if len(item[7]) == 2:
                         res = 1 if item[7][0] == item[7][1] else 0
-                    elif len(values) == 2:
-                        res = 1 if values[0] == values[1] else 0
+                    elif len(value_stack) == 2:
+                        res = 1 if value_stack[0] == value_stack[1] else 0
                     else:
                         raise ValueError(f'Expected exactly two arguments, got:  {item[7]}')
                 case _: raise ValueError('Expected type in range 0-7, got {ptype}')
 
-            values.append(res)
+            value_stack.append(res)
 
         print(f'Operations stack:  {op_stack}')
         print(f'Result:  {res}')
@@ -222,17 +263,18 @@ class Packet():
                 case 5: pdescr = 'greater-than packet'  # T|F - 2 packets
                 case 6: pdescr = 'less-than packet'  # T|F - 2 packets
                 case 7: pdescr = 'equal-to packet'  # T|F - 2 packets
-                case _: raise ValueError('Expected type in range 0-7, got {ptype}')
+                case _: raise ValueError(f'Expected type in range 0-7, got {ptype}')
             self._pointer += 6
 
             # Literal value packet:
             if ptype == 4:
                 pdigit = self.get_lval()
                 poptlv = ('digit', pdigit)  # Packet operation - type, length, value
+                bit_len = self._pointer - bit_start
                 if not op_stack:
-                    op_stack.append(pdigit)
+                    op_stack.append((pdigit, bit_len))
                 else:
-                    list(op_stack[-1].values())[0].append(pdigit)
+                    list(op_stack[-1].values())[0].append((pdigit, bit_len))
             # Operator packet:
             else:
                 # Get length type indicator bit:
@@ -255,9 +297,9 @@ class Packet():
                 else:
                     raise ValueError(f'Expected value of 0 or 1, got {pind}')
 
-                op_stack.append({ptype: [], poptlv[0]: poptlv[1]})
+                bit_len = self._pointer - bit_start
+                op_stack.append({ptype: [], poptlv[0]: poptlv[1], 'bit_len': bit_len})
 
-            bit_len = self._pointer - bit_start
 
             digits_left = plen - self._pointer
             if digits_left == 0:
