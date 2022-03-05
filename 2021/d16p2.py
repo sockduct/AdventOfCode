@@ -97,6 +97,9 @@ class Packet():
         return f'<Packet({self.hexdata})>'
 
     def _calc_helper(self, item, values, op, value_stack, arg_count=0):
+        packet_count = 1
+        bit_count = item['bit_len']
+
         if item.get('packets'):
             item_type = 'packets'
             item_count = item['packets']
@@ -121,12 +124,16 @@ class Packet():
 
         if item_count == value_count:
             res = op(value[0] for value in values)
+            packet_count += len(values)
+            bit_count += sum(value[1] for value in values)
         elif item_count < value_count:
             value_tally = 0
             value_subset = []
             for value in values:
                 value_subset.append(value[0])
                 value_tally += value[1]
+                packet_count += 1
+                bit_count += value[1]
                 if value_tally == item_count:
                     break
                 elif value_tally > item_count:
@@ -135,8 +142,12 @@ class Packet():
         elif item_count > value_count and value_stack:
             value_tally = value_count
             value_subset = values.copy()
+            packet_count += len(values)
+            bit_count += sum(value[1] for value in values)
             while True:
                 value = value_stack.pop()
+                packet_count += 1
+                bit_count += value[1]
                 value_subset.append(value)
                 value_tally += value[1]
                 if value_tally == item_count:
@@ -147,7 +158,7 @@ class Packet():
         else:
             raise ValueError(f'Insufficient number of arguments ({item=}, {value_stack=})')
 
-        return res
+        return dict(res=res, packet_count=packet_count, bit_count=bit_count)
 
     def calculate(self, op_stack):
         '''
@@ -194,7 +205,9 @@ class Packet():
                         value_stack.clear()
                     else:
                         raise ValueError(f'Expected at least one argument, found none')
-                case 4: res = item[4]
+                case 4:
+                    print('Hit case 4!')
+                    res = item[4]
                 case 5:
                     if len(item[5]) == 2:
                         res = 1 if item[5][0] > item[5][1] else 0
@@ -337,11 +350,13 @@ def main():
     print('\n')
 
     # Actual data:
+    '''
     with open(INFILE) as infile:
         packet_data = infile.read().strip()
 
     packet = Packet(packet_data)
     packet.process()
+    '''
 
 
 if __name__ == '__main__':
