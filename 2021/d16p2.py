@@ -5,6 +5,7 @@ INFILE = 'd16p1.txt'
 
 
 from math import prod
+from operator import lt, gt, eq
 import re
 
 
@@ -96,6 +97,17 @@ class Packet():
     def __repr__(self):
         return f'<Packet({self.hexdata})>'
 
+    '''
+    ### To Do:
+    * When have extra/leftover value (type 4), save those - value_stack???
+    * Rather than copying to value_subset (for above), pop the value off, then
+      can take the leftover ones and push them on the value_stack or whereever
+      to save them for future usage
+    * 1st set of numbers is example of above - type 3 followed by 4 type 4's
+      and type 3 only uses 2 of them
+    * Example of where need to save extras is 3rd type 1 - it's bit count needs
+      results of type 6 and 2 type 4's below it plus 3rd unused type 4
+    '''
     def _calc_helper(self, item, values, op, value_stack, arg_count=0):
         packet_count = 1
         bit_count = item['bit_len']
@@ -122,43 +134,62 @@ class Packet():
         else:
             raise ValueError(f'Expected item type of packets or bits ({item})')
 
+            # if not (arg_count and (packet_count - 1) < arg_count):
         if item_count == value_count:
-            res = op(value[0] for value in values)
             packet_count += len(values)
+            if arg_count and (packet_count - 1) > arg_count:
+                raise ValueError(f'Value count greater than argument count:  {arg_count=},'
+                                 f' {packet_count=}, {item_count=}, {value_count=}')
             bit_count += sum(value[1] for value in values)
+            if op.__module__ == '_operator':
+                res = int(op(*[value[0] for value in values]))
+            else:
+                res = op(value[0] for value in values)
         elif item_count < value_count:
             value_tally = 0
             value_subset = []
             for value in values:
                 value_subset.append(value[0])
-                value_tally += value[1]
+                value_tally += value[1] if item_type == 'bits' else 1
                 packet_count += 1
+                if arg_count and (packet_count - 1) > arg_count:
+                    raise ValueError(f'Value count greater than argument count:  {arg_count=},'
+                                    f' {packet_count=}, {item_count=}, {value_count=}')
                 bit_count += value[1]
                 if value_tally == item_count:
                     break
                 elif value_tally > item_count:
                     raise ValueError('Value tally exceeds item count')
-            res = op(value_subset)
+            if op.__module__ == '_operator':
+                res = int(op(*value_subset))
+            else:
+                res = op(value_subset)
         elif item_count > value_count and value_stack:
             value_tally = value_count
             value_subset = values.copy()
             packet_count += len(values)
             bit_count += sum(value[1] for value in values)
             while True:
-                value = value_stack.pop()
+                value_item = value_stack.pop()
                 packet_count += 1
-                bit_count += value[1]
-                value_subset.append(value)
-                value_tally += value[1]
+                if arg_count and (packet_count - 1) > arg_count:
+                    raise ValueError(f'Value count greater than argument count:  {arg_count=},'
+                                    f' {packet_count=}, {item_count=}, {value_count=}')
+                bit_count += value_item[1]['bit_count']
+                value_subset.append(value_item)
+                value_tally += value_item[1]['bit_count'] if item_type == 'bits' else 1
                 if value_tally == item_count:
                     break
                 elif value_tally > item_count:
                     raise ValueError('Value tally exceeds item count')
-            res = op(value[0] for value in values)
+            if op.__module__ == '_operator':
+                res = int(op(*[value[0] for value in value_subset]))
+            else:
+                res = op(value[0] for value in value_subset)
         else:
             raise ValueError(f'Insufficient number of arguments ({item=}, {value_stack=})')
 
-        return dict(res=res, packet_count=packet_count, bit_count=bit_count)
+        return (res, dict(packet_count=packet_count, bit_count=bit_count))
 
     def calculate(self, op_stack):
         '''
@@ -170,71 +201,35 @@ class Packet():
         * 5 - > packet:  1 if 1st sub-packet > 2nd sub-packet else 0
         * 6 - < packet:  1 if 1st sub-packet < 2nd sub-packet else 0
         * 7 - = to packet:  1 if 1st sub-packet == 2nd sub-packet else 0
-
-        ### Need to account for bit length|packet count embedded in operator
-        ### packets to figure out how many literal-value packets they
-        ### ``consume''
         '''
         value_stack = []
         while op_stack:
             item = op_stack.pop()
             match (key := list(item.keys())[0]):
                 case 0:
-                    res = self._calc_helper(item, item[0], sum, value_stack)
+                    res = self._calc_helper(item, item[key], sum, value_stack)
                 case 1:
-                    res = self._calc_helper(item, item[1], prod, value_stack)
+                    res = self._calc_helper(item, item[key], prod, value_stack)
                 case 2:
-                    if item[2] and value_stack:
-                        res = min(item[2] + value_stack)
-                        value_stack.clear()
-                    elif item[2]:
-                        res = min(item[2])
-                    elif value_stack:
-                        res = min(value_stack)
-                        value_stack.clear()
-                    else:
-                        raise ValueError(f'Expected at least one argument, found none')
+                    res = self._calc_helper(item, item[key], min, value_stack)
                 case 3:
-                    if item[3] and value_stack:
-                        res = max(item[3] + value_stack)
-                        value_stack.clear()
-                    elif item[3]:
-                        res = max(item[3])
-                    elif value_stack:
-                        res = max(value_stack)
-                        value_stack.clear()
-                    else:
-                        raise ValueError(f'Expected at least one argument, found none')
+                    res = self._calc_helper(item, item[key], max, value_stack)
                 case 4:
-                    print('Hit case 4!')
                     res = item[4]
+                    raise Exception('Why do I exist?  I\'m never called!')
                 case 5:
-                    if len(item[5]) == 2:
-                        res = 1 if item[5][0] > item[5][1] else 0
-                    elif len(value_stack) == 2:
-                        res = 1 if value_stack[0] > value_stack[1] else 0
-                    else:
-                        raise ValueError(f'Expected exactly two arguments, got:  {item[5]}')
+                    res = self._calc_helper(item, item[key], gt, value_stack, arg_count=2)
                 case 6:
-                    if len(item[6]) == 2:
-                        res = 1 if item[6][0] < item[6][1] else 0
-                    elif len(value_stack) == 2:
-                        res = 1 if value_stack[0] < value_stack[1] else 0
-                    else:
-                        raise ValueError(f'Expected exactly two arguments, got:  {item[6]}')
+                    res = self._calc_helper(item, item[key], lt, value_stack, arg_count=2)
                 case 7:
-                    if len(item[7]) == 2:
-                        res = 1 if item[7][0] == item[7][1] else 0
-                    elif len(value_stack) == 2:
-                        res = 1 if value_stack[0] == value_stack[1] else 0
-                    else:
-                        raise ValueError(f'Expected exactly two arguments, got:  {item[7]}')
+                    res = self._calc_helper(item, item[key], eq, value_stack, arg_count=2)
                 case _: raise ValueError('Expected type in range 0-7, got {ptype}')
 
             value_stack.append(res)
 
         print(f'Operations stack:  {op_stack}')
         print(f'Result:  {res}')
+        return res
 
 
     def get_lval(self):
@@ -257,7 +252,6 @@ class Packet():
         return int(bindata, 2)
 
 
-    ### Need to figure out how to capture bit length for each packet and retain for later:
     def process(self):
         plen = len(self.bindata)
         more_nonzeroes = True
@@ -327,7 +321,7 @@ class Packet():
                   f'({poptlv[0]}), Bit length={bit_len}, Remaining Digits='
                   f'{poprem[1]} ({poprem[0]})')
 
-        self.calculate(op_stack)
+        return self.calculate(op_stack)
 
 
 def main():
@@ -345,18 +339,16 @@ def main():
 
         print(f'\nRead in packet:  {packet_data}')
         packet = Packet(packet_data)
-        packet.process()
-        print(f'Answer should be {expected_result}')
+        res = packet.process()
+        assert res[0] == expected_result
     print('\n')
 
     # Actual data:
-    '''
     with open(INFILE) as infile:
         packet_data = infile.read().strip()
 
     packet = Packet(packet_data)
     packet.process()
-    '''
 
 
 if __name__ == '__main__':
