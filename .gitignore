@@ -13,6 +13,7 @@ __pycache__/*
 
 # Temp/test output files:
 out*.txt
+*.out
 
 # Solutions when stuck:
 *_sol.py

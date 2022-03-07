@@ -134,7 +134,6 @@ class Packet():
         else:
             raise ValueError(f'Expected item type of packets or bits ({item})')
 
-            # if not (arg_count and (packet_count - 1) < arg_count):
         if item_count == value_count:
             packet_count += len(values)
             if arg_count and (packet_count - 1) > arg_count:
@@ -148,31 +147,41 @@ class Packet():
         elif item_count < value_count:
             value_tally = 0
             value_subset = []
-            for value in values:
-                value_subset.append(value[0])
-                value_tally += value[1] if item_type == 'bits' else 1
+            ###for value in values:
+            while values:
+                value_subset.append(value_item := values.pop(0))
+                value_tally += value_item[1] if item_type == 'bits' else 1
                 packet_count += 1
                 if arg_count and (packet_count - 1) > arg_count:
                     raise ValueError(f'Value count greater than argument count:  {arg_count=},'
-                                    f' {packet_count=}, {item_count=}, {value_count=}')
-                bit_count += value[1]
+                                     f' {packet_count=}, {item_count=}, {value_count=}')
+                bit_count += value_item[1]
                 if value_tally == item_count:
                     break
                 elif value_tally > item_count:
                     raise ValueError('Value tally exceeds item count')
             if op.__module__ == '_operator':
-                res = int(op(*value_subset))
+                res = int(op(*[value[0] for value in value_subset]))
             else:
-                res = op(value_subset)
+                res = op(value[0] for value in value_subset)
+
+            while values:
+                value_item = values.pop(0)
+                value_stack.append((value_item[0], dict(packet_count=1, bit_count=value_item[1])))
         elif item_count > value_count and value_stack:
             value_tally = value_count
             value_subset = values.copy()
             packet_count += len(values)
+            arg_count_items = len(values)
             bit_count += sum(value[1] for value in values)
             while True:
                 value_item = value_stack.pop()
-                packet_count += 1
-                if arg_count and (packet_count - 1) > arg_count:
+                if 'packet_count' in value_item[1]:
+                    packet_count += value_item[1]['packet_count']
+                else:
+                    packet_count += 1
+                arg_count_items += 1
+                if arg_count and arg_count_items > arg_count:
                     raise ValueError(f'Value count greater than argument count:  {arg_count=},'
                                     f' {packet_count=}, {item_count=}, {value_count=}')
                 bit_count += value_item[1]['bit_count']
@@ -326,6 +335,7 @@ class Packet():
 
 def main():
     # Test data:
+    '''
     for packet_data, expected_result in (
         ('C200B40A82', 3),  # Finds the sum of 1 and 2, resulting in the value 3
         ('04005AC33890', 54),  # Finds the product of 6 and 9, resulting in the value 54
@@ -342,6 +352,7 @@ def main():
         res = packet.process()
         assert res[0] == expected_result
     print('\n')
+    '''
 
     # Actual data:
     with open(INFILE) as infile:
