@@ -97,17 +97,6 @@ class Packet():
     def __repr__(self):
         return f'<Packet({self.hexdata})>'
 
-    '''
-    ### To Do:
-    * When have extra/leftover value (type 4), save those - value_stack???
-    * Rather than copying to value_subset (for above), pop the value off, then
-      can take the leftover ones and push them on the value_stack or whereever
-      to save them for future usage
-    * 1st set of numbers is example of above - type 3 followed by 4 type 4's
-      and type 3 only uses 2 of them
-    * Example of where need to save extras is 3rd type 1 - it's bit count needs
-      results of type 6 and 2 type 4's below it plus 3rd unused type 4
-    '''
     def _calc_helper(self, item, values, op, value_stack, arg_count=0):
         packet_count = 1
         bit_count = item['bit_len']
@@ -147,7 +136,6 @@ class Packet():
         elif item_count < value_count:
             value_tally = 0
             value_subset = []
-            ###for value in values:
             while values:
                 value_subset.append(value_item := values.pop(0))
                 value_tally += value_item[1] if item_type == 'bits' else 1
@@ -166,7 +154,7 @@ class Packet():
                 res = op(value[0] for value in value_subset)
 
             while values:
-                value_item = values.pop(0)
+                value_item = values.pop()
                 value_stack.append((value_item[0], dict(packet_count=1, bit_count=value_item[1])))
         elif item_count > value_count and value_stack:
             value_tally = value_count
@@ -302,13 +290,11 @@ class Packet():
                     poptlv = ('bits', int(self.bindata[self._pointer:self._pointer + 15], 2))
                     self._pointer += 15
                     # Process sub-packet(s) in next iteration...
-                    ### Count/limit bits processed to bit number?
                 # Next 11 bits are number of sub-packets
                 elif pind == '1':
                     poptlv = ('packets', int(self.bindata[self._pointer:self._pointer + 11], 2))
                     self._pointer += 11
                     # Process sub-packet(s) in next iteration...
-                    ### Count/limit bits processed to packet number?
                 # Parse error/invalid packet:
                 else:
                     raise ValueError(f'Expected value of 0 or 1, got {pind}')
