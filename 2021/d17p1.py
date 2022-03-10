@@ -6,10 +6,6 @@ MAX_VELOCITY = 250
 
 '''
 To do:
-* Initial map isn't quite right - doesn't print last row
-* Add starting point to map
-* Add step function to Launcher
-* Add plot function after stepping
 * Add calculator to figure out trajectories
 '''
 class Launcher():
@@ -20,27 +16,50 @@ class Launcher():
         y = initial upward velocity (downward if negative), integer,
             [-MAX_VELOCITY, MAX_VELOCITY]
 
-        Probe launched from (0, 0) - "ground level"
+        Probe launched from (0, 0) - "Starting point/ground level"
 
-        Probe moves in steps - for each step:
-        * probe's x position increases by its x velocity
-        * probe's y position increases by its y velocity
-        * Drag decreases the probe's velocity by 1 towards 0 (if velocity is
-          negative then it increases to 0), velocity doesn't change once its 0
-        * Gravity decreases probe's y velocity by 1
+        See step function for details
 
         Goal:  Have probe land within target area after any step
         '''
         # Original values:
-        self.init_x = x
-        self.init_y = y
+        self.orig_x = x
+        self.orig_y = y
 
-        # Current values after stepping:
-        self._x = x
-        self._y = y
+        # Increment/decrement values:
+        self.chg_x = x
+        self.chg_y = y
+
+        # Initial/current values (changed by stepping):
+        self._x = 0
+        self._y = 0
 
     def __repr__(self):
-        return f'<Launcher({self.init_x=}, {self.init_y=}, {self.x=}, {self.y=})>'
+        return f'<Launcher({self.x=}, {self.y=})>'
+
+    @property
+    def coords(self):
+        return (self._x, self._y)
+
+    '''
+    Probe moves in steps - for each step:
+    * probe's x position increases by its x velocity
+    * probe's y position increases by its y velocity
+    * Drag decreases the probe's velocity by 1 towards 0 (if velocity is
+        negative then it increases to 0), velocity doesn't change once its 0
+    * Gravity decreases probe's y velocity by 1
+    '''
+    def step(self):
+        # Position change:
+        self._x += self.chg_x
+        self._y += self.chg_y
+
+        # Drag and gravity:
+        if self.chg_x > 0:
+            self.chg_x -= 1
+        elif self.chg_x < 0:
+            self.chg_x += 1
+        self.chg_y -= 1
 
     @property
     def x(self):
@@ -70,6 +89,7 @@ class Map():
         self.cols = self.tx2 + 1
         self.rows = self.height + abs(self.ty1) + 1
         self._init_grid()
+        self.overlay_trajectory()
 
     def __repr__(self):
         return (f'<Map({self.tx1=}, {self.tx2=}, {self.ty1=}, {self.ty2=}, {self.height=}, '
@@ -77,39 +97,68 @@ class Map():
 
     def __str__(self):
         col = 0
-        matrix = ''
+        height = self.height
+        header1 = '{}         '
+        header2 = '0123456789'
+        row_label_width = '   '  # Spaces match zero-padding number after height below
+        header_multiple = self.cols//len(header2)
+        header_trailer = self.cols % len(header2)
+
+        # Header row 1:
+        matrix = f'{row_label_width}'
+        for section in range(header_multiple + 1):
+            header = header1.format(' ') if section == 0 else header1.format(section)
+            matrix += f'{header}'
+
+        # Header row 2:
+        matrix += f'\n{row_label_width}'
+        matrix += f'{header2}' * header_multiple + header2[:header_trailer]
+        matrix += '\n'
+
+        # Col prefix + rows:
         for elmt in self.grid:
+            if col == 0:
+                matrix += f'{height: 3}'
             matrix += elmt
             col += 1
             if col == self.cols:
+                height -= 1
                 matrix += '\n'
                 col = 0
 
         return f'{matrix}'
 
-    '''
-    This is the wrong approach
-    ### Start at self.ty2, self.tx1 and fill out map from there...
-    '''
     def _init_grid(self):
         self.grid = ['.'] * (self.cols * self.rows)
         row = self.height
         col = 0
         for _ in self.grid:
+            if row == 0 and col == 0:
+                self.set(col, abs(row - self.height), 'S')
             if self.ty1 <= row <= self.ty2 and self.tx1 <= col <= self.tx2:
                 self.set(col, abs(row - self.height), 'T')
             col += 1
-            if col > self.cols:
+            if col == self.cols:
                 col = 0
                 row -= 1
 
     def _init_height(self):
-        height = max(self.launcher.y, 0)
+        height = max(self.launcher.orig_y, 0)
         if height > 0:
             for i in range(1, height):
                 height += i
 
         self.height = height
+
+    def overlay_trajectory(self):
+        while True:
+            # Initial coordinate already plotted, start with a step:
+            self.launcher.step()
+            col, row = self.launcher.coords
+            row = abs(row - self.height)
+            if col >= self.cols or row >= self.rows:
+                break
+            self.set(col, row, '#')
 
     def set(self, x, y, value):
         point = (self.cols * y) + x
