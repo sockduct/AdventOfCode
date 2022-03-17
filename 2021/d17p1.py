@@ -1,7 +1,16 @@
 #! /usr/bin/env python3.10
 
 
+INFILE = 'd17p1t1.txt'
+# INFILE = 'd17p1.txt'
 MAX_VELOCITY = 250
+
+
+# Standard Library
+import re
+
+# 3rd Party Library
+from colorama import init, Fore, Style
 
 
 '''
@@ -35,7 +44,7 @@ class Launcher():
         self._y = 0
 
     def __repr__(self):
-        return f'<Launcher({self.x=}, {self.y=})>'
+        return f'<Launcher(x-pos={self.x}, y-pos={self.y}, x-vel={self.chg_x}, y-vel={self.chg_y})>'
 
     @property
     def coords(self):
@@ -90,6 +99,8 @@ class Map():
         self.rows = self.height + abs(self.ty1) + 1
         self._init_grid()
         self.overlay_trajectory()
+        # Initialize colorama:
+        init()
 
     def __repr__(self):
         return (f'<Map({self.tx1=}, {self.tx2=}, {self.ty1=}, {self.ty2=}, {self.height=}, '
@@ -134,9 +145,9 @@ class Map():
         col = 0
         for _ in self.grid:
             if row == 0 and col == 0:
-                self.set(col, abs(row - self.height), 'S')
+                self.set(col, abs(row - self.height), f'{Fore.LIGHTBLUE_EX}S{Style.RESET_ALL}')
             if self.ty1 <= row <= self.ty2 and self.tx1 <= col <= self.tx2:
-                self.set(col, abs(row - self.height), 'T')
+                self.set(col, abs(row - self.height), f'{Fore.CYAN}T{Style.RESET_ALL}')
             col += 1
             if col == self.cols:
                 col = 0
@@ -150,6 +161,9 @@ class Map():
 
         self.height = height
 
+    def get(self, x, y):
+        return self.grid[(self.cols * y) + x]
+
     def overlay_trajectory(self):
         while True:
             # Initial coordinate already plotted, start with a step:
@@ -158,7 +172,10 @@ class Map():
             row = abs(row - self.height)
             if col >= self.cols or row >= self.rows:
                 break
-            self.set(col, row, '#')
+            if self.get(col, row) == f'{Fore.CYAN}T{Style.RESET_ALL}':
+                self.set(col, row, f'{Fore.LIGHTGREEN_EX}#{Style.RESET_ALL}')
+            else:
+                self.set(col, row, f'{Fore.MAGENTA}#{Style.RESET_ALL}')
 
     def set(self, x, y, value):
         point = (self.cols * y) + x
@@ -166,10 +183,32 @@ class Map():
 
 
 def main():
-    target = dict(x1=20, x2=30, y1=-10, y2=-5)
-    launcher = Launcher(7, 2)
+    '''
+    Testing:
+    for x1, x2, y1, y2, l1, l2 in ((20, 30, -10, -5, 7, 2),
+                                   (20, 30, -10, -5, 6, 3),
+                                   (20, 30, -10, -5, 9, 0),
+                                   (20, 30, -10, -5, 17, -4),
+                                   (20, 30, -10, -5, 6, 9)):
+        target = dict(x1=x1, x2=x2, y1=y1, y2=y2)
+        launcher = Launcher(l1, l2)
+        print(f'Launcher:  {launcher.chg_x}, {launcher.chg_y}')
+        map = Map(target, launcher)
+        print(f'{map}\n')
+    '''
+
+    with open(INFILE) as infile:
+        for line in infile:
+            if (res := re.match(r'target area: x=(-?\d+)\.\.(-?\d+), y=(-?\d+)\.\.(-?\d+)', line)):
+                x1, x2, y1, y2 = res.groups()
+                break
+
+    target = dict(x1=int(x1), x2=int(x2), y1=int(y1), y2=int(y2))
+    ### Need to come up with launch values:
+    launcher = Launcher(23, -10)
+    print(f'Launcher:  {launcher.chg_x}, {launcher.chg_y}')
     map = Map(target, launcher)
-    print(map)
+    print(f'{map}\n')
 
 
 if __name__ == '__main__':
