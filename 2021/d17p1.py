@@ -7,16 +7,13 @@ MAX_VELOCITY = 250
 
 
 # Standard Library
+from itertools import product
 import re
 
 # 3rd Party Library
 from colorama import init, Fore, Style
 
 
-'''
-To do:
-* Add calculator to figure out trajectories
-'''
 class Launcher():
     def __init__(self, x, y):
         '''
@@ -182,6 +179,27 @@ class Map():
         self.grid[point] = value
 
 
+def xdist(n):
+    '''Calculate n + n - 1 + n - 2 + ... + 2 + 1'''
+    if n < 1:
+        raise ValueError(f'n must be > 0, got {n}')
+    return n + (n * (n - 1))//2
+
+
+def calc_launch_limits(target):
+    launch_limits = dict(xmin=0, xmax=target['x2'],
+                         ymin=target['y1'], ymax=(abs(target['y1']) - 1))
+    for x in range(1, target['x2'] + 1):
+        if target['x1'] <= (xval := xdist(x)) <= target['x2']:
+            if launch_limits['xmin'] == 0:
+                launch_limits['xmin'] = x
+                break
+        elif xval > target['x2']:
+            break
+
+    return launch_limits
+
+
 def main():
     '''
     Testing:
@@ -204,11 +222,31 @@ def main():
                 break
 
     target = dict(x1=int(x1), x2=int(x2), y1=int(y1), y2=int(y2))
+    '''
+    Calculate resulting distance with initial velocity of x:
+    x + x(x - 1)/2
+    Use above to calculate x values within x1 - x2 target range
+
+    Calculate max height:
+    * Launch at +y, when comes back to 0 at -y, then goes -y - 1 down
+      i.e., if launch at 10, at 0 goes -11 - so +y < y1
+    Calculate min height:
+    * Launch at -y, -y must be <= y1
+    Calculate y values within y1 - y2 target range (Note:  y1 is lower)
+    '''
     ### Need to come up with launch values:
-    launcher = Launcher(23, -10)
-    print(f'Launcher:  {launcher.chg_x}, {launcher.chg_y}')
-    map = Map(target, launcher)
-    print(f'{map}\n')
+    launch_limits = calc_launch_limits(target)
+    launch_pairs = list(product(range(launch_limits['xmin'], launch_limits['xmax'] + 1),
+                                range(launch_limits['ymin'], launch_limits['ymax'] + 1)))
+    print(f'Launch Pairs:  {launch_pairs}')
+    print(f'Total Launch Pairs:  {len(launch_pairs)}')
+    for i, (x, y) in enumerate(launch_pairs):
+        launcher = Launcher(x, y)
+        print(f'Launcher:  {launcher.chg_x}, {launcher.chg_y}')
+        map = Map(target, launcher)
+        print(f'{map}\n')
+        if i >= 3:
+            break
 
 
 if __name__ == '__main__':
