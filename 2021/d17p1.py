@@ -1,8 +1,8 @@
 #! /usr/bin/env python3.10
 
 
-INFILE = 'd17p1t1.txt'
-# INFILE = 'd17p1.txt'
+# INFILE = 'd17p1t1.txt'
+INFILE = 'd17p1.txt'
 MAX_VELOCITY = 250
 
 
@@ -94,16 +94,15 @@ class Map():
         self._init_height()
         self.cols = self.tx2 + 1
         self.rows = self.height + abs(self.ty1) + 1
-        self._init_grid()
-        self.overlay_trajectory()
-        # Initialize colorama:
-        init()
+        self.grid_init = False
 
     def __repr__(self):
         return (f'<Map({self.tx1=}, {self.tx2=}, {self.ty1=}, {self.ty2=}, {self.height=}, '
                 f'{self.cols=}, {self.rows=})>')
 
     def __str__(self):
+        if not self.grid_init:
+            self.init_grid()
         col = 0
         height = self.height
         header1 = '{}         '
@@ -159,7 +158,29 @@ class Map():
         self.height = height
 
     def get(self, x, y):
+        if not self.grid_init:
+            self.init_grid()
         return self.grid[(self.cols * y) + x]
+
+    def get_result(self):
+        while True:
+            # Initial coordinate already plotted, start with a step:
+            self.launcher.step()
+            col, row = self.launcher.coords
+            row_check = abs(row - self.height)
+            if col >= self.cols or row_check >= self.rows:
+                break
+            if self.ty1 <= row <= self.ty2 and self.tx1 <= col <= self.tx2:
+                return True
+
+        return False
+
+    def init_grid(self):
+        self.grid_init = True
+        self._init_grid()
+        self.overlay_trajectory()
+        # Initialize colorama:
+        init()
 
     def overlay_trajectory(self):
         while True:
@@ -175,6 +196,8 @@ class Map():
                 self.set(col, row, f'{Fore.MAGENTA}#{Style.RESET_ALL}')
 
     def set(self, x, y, value):
+        if not self.grid_init:
+            self.init_grid()
         point = (self.cols * y) + x
         self.grid[point] = value
 
@@ -200,9 +223,9 @@ def calc_launch_limits(target):
     return launch_limits
 
 
-def main():
+def main(verbose=False):
+    # Testing:
     '''
-    Testing:
     for x1, x2, y1, y2, l1, l2 in ((20, 30, -10, -5, 7, 2),
                                    (20, 30, -10, -5, 6, 3),
                                    (20, 30, -10, -5, 9, 0),
@@ -213,6 +236,10 @@ def main():
         print(f'Launcher:  {launcher.chg_x}, {launcher.chg_y}')
         map = Map(target, launcher)
         print(f'{map}\n')
+        # Reset values:
+        launcher = Launcher(l1, l2)
+        map = Map(target, launcher)
+        print(f'Success:  {map.get_result()}')
     '''
 
     with open(INFILE) as infile:
@@ -238,15 +265,32 @@ def main():
     launch_limits = calc_launch_limits(target)
     launch_pairs = list(product(range(launch_limits['xmin'], launch_limits['xmax'] + 1),
                                 range(launch_limits['ymin'], launch_limits['ymax'] + 1)))
-    print(f'Launch Pairs:  {launch_pairs}')
+    if verbose:
+        print(f'Launch Pairs:  {launch_pairs}')
     print(f'Total Launch Pairs:  {len(launch_pairs)}')
-    for i, (x, y) in enumerate(launch_pairs):
+    # for i, (x, y) in enumerate(launch_pairs):
+    valid_pairs = []
+    for x, y in launch_pairs:
         launcher = Launcher(x, y)
-        print(f'Launcher:  {launcher.chg_x}, {launcher.chg_y}')
+        if verbose:
+            print(f'Launcher:  {launcher.chg_x}, {launcher.chg_y}')
         map = Map(target, launcher)
-        print(f'{map}\n')
-        if i >= 3:
+        res = map.get_result()
+        if verbose:
+            print(f'Success:  {res}')
+        if res:
+            valid_pairs.append((x, y))
+        '''
+        # Reset Values:
+        if res:
+            launcher = Launcher(x, y)
+            map = Map(target, launcher)
+            print(f'{map}\n')
+        if i >= 50:
             break
+        '''
+
+    print(f'Found {len(valid_pairs)} valid launch pairs.')
 
 
 if __name__ == '__main__':
