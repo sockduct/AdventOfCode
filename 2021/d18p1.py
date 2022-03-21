@@ -7,6 +7,7 @@ INFILE = 'd18p1t1.txt'
 
 import json
 from pprint import pprint
+import re
 
 
 class SnailfishNumber():
@@ -52,7 +53,36 @@ class SnailfishNumber():
 
         '''
         # Build out explode procedure...
-        ...
+        stack = []
+        numstr = str(self.number)
+        left = True
+        depth = 0
+        explode = False
+        split = False
+        while (res := re.match(r'(\[|\]|\d+|,) *', numstr)):
+            match res.group(1):
+                case '[':
+                    stack.append('[')
+                    depth += 1
+                    if depth >= 4 and not explode:
+                        explode = True
+                        print('Explode next pair!')
+                case ']':
+                    stack.append(']')
+                    depth -= 1
+                case num if num[0] in '123456789':
+                    stack.append(int(num))
+                case ',':
+                    # Toggle
+                    left = False if left else True
+                case _:
+                    raise ValueError(f"Unexpected value:  ``{res}''")
+            numstr = numstr[len(res.group()):]
+            if not res:
+                break
+        print(f'Stack:  {stack}')
+
+        return self.number
 
 
 def main():
@@ -65,7 +95,8 @@ def main():
     ]
 
     for number, answer in pairs:
-        assert SnailfishNumber(number)._reduce().number == answer
+        assert (num_reduced := SnailfishNumber(number)._reduce()) == answer, (
+               f'{num_reduced} != {answer}')
 
     '''
     numbers = []
