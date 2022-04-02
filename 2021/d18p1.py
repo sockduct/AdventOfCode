@@ -5,9 +5,14 @@ INFILE = 'd18p1t1.txt'
 # INFILE = 'd18p1.txt'
 
 
+# Standard Library
 import json
 from pprint import pprint
 import re
+
+
+# Local:
+from positional_list import PositionalList
 
 
 class SnailfishNumber():
@@ -51,19 +56,20 @@ class SnailfishNumber():
         pair should be the regular number divided by two and rounded up. For example, 10 becomes
         [5,5], 11 becomes [5,6], 12 becomes [6,6], and so on.
 
+        *** Next Steps
+        Leverage positional list ADT from Python DSA book for the task below:
         '''
         # Build out explode procedure...
-        queue = self._queue()
+        poslist = self._poslist()
+        cur = poslist.first()
         left_stack = []
         right_stack = []
-        qmax = len(queue)
-        qpos = 0
         left = True
         depth = 0
         explode = False
         split = False
-        while qpos < qmax:
-            match queue[qpos]:
+        while cur:
+            match cur.element():
                 case '[':
                     depth += 1
                     left = True
@@ -72,35 +78,37 @@ class SnailfishNumber():
                         print('Explode next pair!')
                 case ']':
                     depth -= 1
-                case num if num[0] in '123456789':
+                case num if isinstance(num, int):
                     if left:
-                        left_stack.append((num, qpos))
+                        left_stack.append((num, cur))
                         left = False
                     else:
                         if explode:
-                            ...
+                            print('Explode!  Need code though...')
                 case ',':
                     left = False if left else True
-            qpos += 1
+            cur = poslist.after(cur)
 
         return self.number
 
-    def _queue(self):
-        queue = []
+    def _poslist(self):
+        poslist = PositionalList()
         numstr = str(self.number)
         while (res := re.match(r'(\[|\]|\d+|,) *', numstr)):
             match res.group(1):
                 case '[':
-                    queue.append('[')
+                    poslist.add_last('[')
+                    '''
                     depth += 1
                     if depth >= 4 and not explode:
                         explode = True
                         print('Explode next pair!')
+                    '''
                 case ']':
-                    queue.append(']')
-                    depth -= 1
+                    poslist.add_last(']')
+                    ### depth -= 1
                 case num if num[0] in '123456789':
-                    queue.append(int(num))
+                    poslist.add_last(int(num))
                 case ',':
                     pass
                 case _:
@@ -108,9 +116,9 @@ class SnailfishNumber():
             numstr = numstr[len(res.group()):]
             if not res:
                 break
-        print(f'Queue:  {queue}')
+        print(f'Positional List:  {poslist}')
 
-        return queue
+        return poslist
 
 
 def main():
