@@ -37,6 +37,9 @@ class PositionalList(_DoublyLinkedBase):
       """Return True if other does not represent the same location."""
       return not (self == other)               # opposite of __eq__
 
+    def __repr__(self):
+      return f'<Position({self.element()})>'
+
   #------------------------------- utility methods -------------------------------
   def _validate(self, p):
     """Return position's node, or raise appropriate error if invalid."""
@@ -55,8 +58,27 @@ class PositionalList(_DoublyLinkedBase):
     else:
       return self.Position(self, node)         # legitimate position
 
+  def __repr__(self):
+    return f'<PositionalList({len(self)} elements)>'
+
   def __str__(self):
     return ', '.join(str(node) for node in self)
+
+  def to_json(self):
+    out = ''
+    cur = self.first()
+    while cur:
+      node = cur.element()
+      out += str(node)
+      # Is next element a number?
+      if node != '[' and (next := self.after(cur)):
+        nextnode = next.element()
+        if isinstance(nextnode, int) or nextnode == '[':
+          out += ','
+
+      cur = self.after(cur)
+
+    return out
 
   #------------------------------- accessors -------------------------------
   def first(self):

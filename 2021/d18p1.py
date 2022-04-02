@@ -63,7 +63,6 @@ class SnailfishNumber():
         poslist = self._poslist()
         cur = poslist.first()
         left_stack = []
-        right_stack = []
         left = True
         depth = 0
         explode = False
@@ -84,11 +83,30 @@ class SnailfishNumber():
                         left = False
                     else:
                         if explode:
-                            print('Explode!  Need code though...')
+                            print('Exploding...')
+                            leftval, leftcur = left_stack[-1]
+                            poslist.delete(poslist.before(leftcur))
+                            poslist.delete(leftcur)
+                            if len(left_stack) > 1:
+                                leftval += left_stack[-2][0]
+                                poslist.replace(left_stack[-2][1], leftval)
+                            rightval, rightcur = num, cur
+                            nextright = rightcur
+                            while (nextright := poslist.after(nextright)):
+                                if isinstance((rnum := nextright.element()), int):
+                                    rightval += rnum
+                                    poslist.replace(nextright, rightval)
+                                    break
+                            poslist.delete(poslist.after(rightcur))
+                            poslist.replace(rightcur, 0)
+
+                            explode = False
                 case ',':
                     left = False if left else True
             cur = poslist.after(cur)
 
+        print(f'Exploded positional List:  {poslist}')
+        self.number = json.loads(poslist.to_json())
         return self.number
 
     def _poslist(self):
@@ -131,8 +149,10 @@ def main():
     ]
 
     for number, answer in pairs:
+        print(f'Input:  {number},  Expected output:  {answer}')
         assert (num_reduced := SnailfishNumber(number)._reduce()) == answer, (
                f'{num_reduced} != {answer}')
+        print('Success - next number...\n')
 
     '''
     numbers = []
