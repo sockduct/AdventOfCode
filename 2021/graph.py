@@ -20,11 +20,11 @@ class Graph:
         self._vlabels = {}
 
     def __repr__(self):
-        vertices = ', '.join(sorted(repr(k) for k in self.vertices()))
+        # vertices = ', '.join(sorted(repr(k) for k in self.vertices()))
         graph = '<Graph('
         if self.is_directed():
             graph += 'directed, '
-        graph += f'{vertices})>'
+        graph += f'{self.vertex_count()} vertices with {self.edge_count()} edges)>'
 
         return graph
 
