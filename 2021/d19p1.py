@@ -7,7 +7,7 @@ INFILE = 'd19p1t1.txt'
 # Libraries
 # Standard Library:
 from itertools import combinations
-from math import sqrt
+from math import isclose, sqrt
 from pprint import pprint
 import re
 
@@ -61,12 +61,33 @@ class Scanner():
         return sqrt( (b2x - b1x)**2 + (b2y - b1y)**2 + (b2z - b1z)**2 )
 
 
+def cmp_vertices(scanner1, scanner2):
+    matching_vertices = []
+
+    for vertex1 in scanner1.vertices():
+        for vertex2 in scanner2.vertices():
+            # 1) Same number of edges?
+            if scanner1.degree(vertex1) == scanner2.degree(vertex2):
+                # 2) Weights for each edge "match" or very close (because floats)
+                v1_edges = sorted(scanner1.incident_edges(vertex1))
+                v2_edges = sorted(scanner2.incident_edges(vertex2))
+
+                for e1, e2 in zip(v1_edges, v2_edges):
+                    if not isclose(e1, e2):
+                        continue
+
+                matching_vertices.append(vertex1.label, vertex2.label)
+
+    return matching_vertices
+
+
 '''
 Start here:
 * Simpler solution:
   * Create weighted (labeled) graphs
-  ### \/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/ ###
-  * For each vertex in graph1 (scanner 0) look for vertex in graph2 (scanner 1) with:
+  ### \/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/ ###
+  * For each vertex in graph1 (scanner 0) look for vertex in graph2 (scanner 1)
+    with:
     * Same number of edges
     * Matching (or very close) weights for each edge
   * Looking for 12 matching vertices between graphs (scanners)
@@ -110,6 +131,13 @@ def main():
     print('Read in:')
     for scanner in scanners:
         print(f'Scanner {scanner.id} graph:  {scanner.graph!r}')
+
+    # Find matching vertices in pairs of scanners
+    same_verts = {k: [] for k in combinations(scanners, 2)}
+    for key in same_verts:
+        s1, s2 = key
+        if res := cmp_vertices(s1, s2):
+            same_verts[key].extend(res)
 
     # Temporary:
     return scanners
