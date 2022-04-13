@@ -183,6 +183,24 @@ class Graph:
             self._label = label
             self._directed = directed
 
+        def __eq__(self, other):
+            return self.label == other.label
+
+        def __ne__(self, other):
+            return self.label != other.label
+
+        def __ge__(self, other):
+            return self.label >= other.label
+
+        def __gt__(self, other):
+            return self.label > other.label
+
+        def __le__(self, other):
+            return self.label <= other.label
+
+        def __lt__(self, other):
+            return self.label < other.label
+
         def endpoints(self):
             """Return (u, v) tuple for vertices u and v."""
             return (self._origin, self._destination)

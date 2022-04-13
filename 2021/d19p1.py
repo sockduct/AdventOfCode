@@ -62,6 +62,13 @@ class Scanner():
 
 
 def cmp_vertices(scanner1, scanner2):
+    '''
+    Take two scanners (graph portion) and return matching vertices
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    Refine to count number of matching edges and return matching vertices with
+    >= 11 matching edges
+    '''
     matching_vertices = []
 
     for vertex1 in scanner1.vertices():
@@ -72,13 +79,17 @@ def cmp_vertices(scanner1, scanner2):
                 v1_edges = sorted(scanner1.incident_edges(vertex1))
                 v2_edges = sorted(scanner2.incident_edges(vertex2))
 
-                for e1, e2 in zip(v1_edges, v2_edges):
-                    if not isclose(e1, e2):
-                        continue
+                edges_match = all(isclose(e1.label, e2.label) for e1, e2 in zip(v1_edges, v2_edges))
 
-                matching_vertices.append(vertex1.label, vertex2.label)
+                if edges_match:
+                    matching_vertices.append((vertex1.label, vertex2.label))
 
     return matching_vertices
+
+
+def get_vert_edges(scanner):
+    return {vertex.label: sorted(scanner.graph.incident_edges(vertex))
+            for vertex in scanner.graph.vertices()}
 
 
 '''
@@ -91,6 +102,9 @@ Start here:
     * Same number of edges
     * Matching (or very close) weights for each edge
   * Looking for 12 matching vertices between graphs (scanners)
+* Refinement - the above is close, but from examining problem again, only need
+  to find 12 matching vertices or 11 edges with matching distances
+  * Refactor cmp_vertices to find vertex pairs with >= 11 matching edges
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 X Complex and believe unnecessary:
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -111,36 +125,51 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 def main():
     scanners = []
     with open(INFILE) as infile:
-        current_scanner = -1
         current_beacons = []
         for line in infile:
             if (scanner := re.match(r'^--- scanner (\d+) ---', line)):
-                # Save last scanner and its beacons
-                if current_scanner >= 0:
-                    scanners.append(Scanner(current_scanner, current_beacons))
-                    current_beacons.clear()
                 current_scanner = int(scanner[1])
+                current_processed = False
             elif (beacon := re.match(r'^(-?\d+),(-?\d+),(-?\d+)', line)):
                 beacon_coords = tuple(int(i) for i in beacon.groups())
                 current_beacons.append(beacon_coords)
             elif line.strip() == '':
-                continue
+                # Save current scanner and its beacons
+                scanners.append(Scanner(current_scanner, current_beacons))
+                current_beacons.clear()
+                current_processed = True
             else:
                 raise ValueError("Unexpected line value:  ``{line}''")
+
+        if not current_processed:
+            # Save current scanner and its beacons
+            scanners.append(Scanner(current_scanner, current_beacons))
+            current_beacons.clear()
+
+        if current_scanner + 1 != len(scanners):
+            raise ValueError('Missed last value!!!')
+
 
     print('Read in:')
     for scanner in scanners:
         print(f'Scanner {scanner.id} graph:  {scanner.graph!r}')
+        #pprint(get_vert_edges(scanner))
+        #print()
 
     # Find matching vertices in pairs of scanners
+    '''
     same_verts = {k: [] for k in combinations(scanners, 2)}
     for key in same_verts:
         s1, s2 = key
-        if res := cmp_vertices(s1, s2):
+        if res := cmp_vertices(s1.graph, s2.graph):
             same_verts[key].extend(res)
+
+    print(f'Found {len(same_verts)} matching vertices:')
+    print(same_verts)
 
     # Temporary:
     return scanners
+    '''
 
 
 if __name__ == '__main__':
