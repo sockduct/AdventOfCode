@@ -63,28 +63,35 @@ class Scanner():
 
 def cmp_vertices(scanner1, scanner2):
     '''
-    Take two scanners (graph portion) and return matching vertices
+    Take two scanners (graph portion) and return matching edges <= max_dist
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    Refine to count number of matching edges and return matching vertices with
-    >= 11 matching edges
+    Next step:  From matching edges, pull out all vertices and find unique set
     '''
-    matching_vertices = []
+    matching_edges = []
+    max_dist = 1_000
 
-    for vertex1 in scanner1.vertices():
-        for vertex2 in scanner2.vertices():
-            # 1) Same number of edges?
-            if scanner1.degree(vertex1) == scanner2.degree(vertex2):
-                # 2) Weights for each edge "match" or very close (because floats)
-                v1_edges = sorted(scanner1.incident_edges(vertex1))
-                v2_edges = sorted(scanner2.incident_edges(vertex2))
+    edges1 = sorted(scanner1.graph.edges())
+    edges2 = sorted(scanner2.graph.edges())
+    edge1 = None
+    edge2 = None
+    while edges1 and edges2:
+        if not edge1:
+            edge1 = edges1.pop()
+        if not edge2:
+            edge2 = edges2.pop()
 
-                edges_match = all(isclose(e1.label, e2.label) for e1, e2 in zip(v1_edges, v2_edges))
+        if isclose(edge1.label, edge2.label):
+            if edge1.label <= max_dist:
+                matching_edges.append((edge1, edge2))
+            edge1 = None
+            edge2 = None
+        elif edge1.label > edge2.label:
+            edge1 = None
+        else:
+            edge2 = None
 
-                if edges_match:
-                    matching_vertices.append((vertex1.label, vertex2.label))
-
-    return matching_vertices
+    return matching_edges
 
 
 def get_vert_edges(scanner):
@@ -157,19 +164,18 @@ def main():
         #print()
 
     # Find matching vertices in pairs of scanners
-    '''
     same_verts = {k: [] for k in combinations(scanners, 2)}
     for key in same_verts:
         s1, s2 = key
-        if res := cmp_vertices(s1.graph, s2.graph):
+        if res := cmp_vertices(s1, s2):
+            print(f'For scanner {s1.id} and scanner {s2.id} found {len(res)} matching edges.')
             same_verts[key].extend(res)
 
     print(f'Found {len(same_verts)} matching vertices:')
-    print(same_verts)
+    pprint(same_verts)
 
     # Temporary:
     return scanners
-    '''
 
 
 if __name__ == '__main__':
