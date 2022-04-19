@@ -20,6 +20,10 @@ from graph import Graph
 MAX_DIST = sqrt( 1_000**2 + 1_000**2 + 1_000**2 )  # Approx: 1,732.0508
 
 
+'''
+Scanner can see beacons up to 1,000 units away on each axis:
+* +/- 1,000 units in x, y, and z-axis directions
+'''
 class Scanner():
     def __init__(self, id, beacons=None):
         self.id = id
@@ -108,9 +112,77 @@ def cmp_vertices(scanner1, scanner2):
     return s1_vertices, s2_vertices, matching_edges
 
 
+def get_equiv_vertices(s1_vertices, s2_vertices, edges):
+    s1_verts = {vert: defaultdict(int) for vert in s1_vertices}
+    s2_verts = {vert: defaultdict(int) for vert in s2_vertices}
+    for e1, e2 in edges:
+        s1_v1, s1_v2 = e1.endpoints()
+        s2_v1, s2_v2 = e2.endpoints()
+        s1_verts[s1_v1][s2_v1] += 1
+        s1_verts[s1_v1][s2_v2] += 1
+        s1_verts[s1_v2][s2_v1] += 1
+        s1_verts[s1_v2][s2_v2] += 1
+        s2_verts[s2_v1][s1_v1] += 1
+        s2_verts[s2_v1][s1_v2] += 1
+        s2_verts[s2_v2][s1_v1] += 1
+        s2_verts[s2_v2][s1_v2] += 1
+
+    #pprint(s1_verts)
+    #pprint(s2_verts)
+
+    # With this having matching vertices
+    s1_verts_equiv = {}
+    for base_key, base_values in s1_verts.items():
+        matched_nested = False
+        for nested_key, nested_value in base_values.items():
+            if nested_value == 11 and not matched_nested:
+                matched_nested = True
+                s1_verts_equiv[base_key] = nested_key
+            elif nested_value == 11:
+                raise ValueError('Matched 11 more than once...')
+
+    '''
+    # These are mirror image of above and not necessary:
+    s2_verts_equiv = {}
+    for base_key, base_values in s2_verts.items():
+        matched_nested = False
+        for nested_key, nested_value in base_values.items():
+            if nested_value == 11 and not matched_nested:
+                matched_nested = True
+                s2_verts_equiv[base_key] = nested_key
+            elif nested_value ==11 and matched_nested:
+                raise ValueError('Matched 11 more than once...')
+    '''
+
+    return s1_verts_equiv
+
+
 def get_vert_edges(scanner):
     return {vertex.label: sorted(scanner.graph.incident_edges(vertex))
             for vertex in scanner.graph.vertices()}
+
+
+def get_vert_offsets(s1_verts_equiv, transform):
+    s1_verts_dists = []
+    for s0v, s1v in s1_verts_equiv.items():
+        s0vx, s0vy, s0vz = s0v.label
+        s1vx, s1vy, s1vz = s1v.label
+
+        # Believe want to do match/case
+        if transform[0] == -1:
+            s1vx = -s1vx
+
+        # The diff2's are the same but with opposite sign:
+        xdiff1 = s0vx - s1vx
+        # xdiff2 = s1vx - s0vx
+        ydiff1 = s0vy - s1vy
+        # ydiff2 = s1vy - s0vy
+        zdiff1 = s0vz - s1vz
+        # zdiff2 = s1vz - s0vz
+
+        s1_verts_dists.append((xdiff1, ydiff1, zdiff1))
+
+    return s1_verts_dists
 
 
 '''
@@ -179,44 +251,20 @@ def main():
 
     # Find matching vertices in pairs of scanners
     same_verts = {k: [] for k in combinations(scanners, 2)}
-    for key in same_verts:
+    for key, value in same_verts.items():
         s1, s2 = key
         s1_vertices, s2_vertices, edges = cmp_vertices(s1, s2)
         if edges:
             print(f'\n\nFor scanner {s1.id} and scanner {s2.id} found {len(edges)} matching edges.')
-            print(f'\nScanner {s1.id} overlapping vertices:\n{[str(i) for i in s1_vertices]}')
-            print(f'\nScanner {s2.id} overlapping vertices:\n{[str(i) for i in s2_vertices]}\n')
+            print(f'\nScanner {s1.id} overlapping vertices - {len(s1_vertices)}:\n{[str(i) for i in s1_vertices]}')
+            print(f'\nScanner {s2.id} overlapping vertices - {len(s2_vertices)}:\n{[str(i) for i in s2_vertices]}\n')
             # pprint(edges)
             print()
-            same_verts[key].extend(edges)
+            value.extend(edges)
 
-        s1_verts = {vert: defaultdict(int) for vert in s1_vertices}
-        s2_verts = {vert: defaultdict(int) for vert in s2_vertices}
-        for e1, e2 in edges:
-            s1_v1, s1_v2 = e1.endpoints()
-            s2_v1, s2_v2 = e2.endpoints()
-            s1_verts[s1_v1][s2_v1] += 1
-            s1_verts[s1_v1][s2_v2] += 1
-            s1_verts[s1_v2][s2_v1] += 1
-            s1_verts[s1_v2][s2_v2] += 1
-            s2_verts[s2_v1][s1_v1] += 1
-            s2_verts[s2_v1][s1_v2] += 1
-            s2_verts[s2_v2][s1_v1] += 1
-            s2_verts[s2_v2][s1_v2] += 1
-
-        #pprint(s1_verts)
-        #pprint(s2_verts)
-
-        # With this having matching vertices
-        s1_verts_equiv = {}
-        for base_key, base_values in s1_verts.items():
-            matched_nested = False
-            for nested_key, nested_value in base_values.items():
-                if nested_value == 11 and not matched_nested:
-                    matched_nested = True
-                    s1_verts_equiv[base_key] = nested_key
-                elif nested_value ==11 and matched_nested:
-                    raise ValueError('Matched 11 more than once...')
+        s1_verts_equiv = get_equiv_vertices(s1_vertices, s2_vertices, edges)
+        print('Scanner 0 vertices (left) and corresponding scanner 1 vertices (right):')
+        pprint(s1_verts_equiv)
 
         '''
         ### Next Step:
@@ -230,23 +278,24 @@ def main():
           from the perspective of the other scanner. In total, each scanner could be in
           any of 24 different orientations: facing positive or negative x, y, or z, and
           considering any of four directions "up" from that facing.
+
+        * Use transform to play with various permutations:
+          (1, 2, 3), (1, 3, 2), (2, 1, 3), (2, 3, 1), (3, 1, 2), (3, 2, 1)
+          -and-
+          (1, 2, 3), (1, 2, -3), (1, -2, 3), (-1, 2, 3),
+          (1, -2, -3), (-1, -2, 3), (-1, 2, -3), (-1, -2, -3)
         '''
 
-        '''
-        # These are mirror image of above and not necessary:
-        s2_verts_equiv = {}
-        for base_key, base_values in s2_verts.items():
-            matched_nested = False
-            for nested_key, nested_value in base_values.items():
-                if nested_value == 11 and not matched_nested:
-                    matched_nested = True
-                    s2_verts_equiv[base_key] = nested_key
-                elif nested_value ==11 and matched_nested:
-                    raise ValueError('Matched 11 more than once...')
-        '''
+        transform = (1, 2, 3)
+        s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
+        print('\n\nScanner 0 vertices offsets versus Scanner 1:')
+        pprint(s1_vert_offsets)
 
-        pprint(s1_verts_equiv)
-        #pprint(s2_verts_equiv)
+        transform = (-1, 2, 3)
+        s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
+        print('\n\nScanner 0 vertices offsets versus Scanner 1:')
+        pprint(s1_vert_offsets)
+
         # Start with just 0 and 1:
         break
 
