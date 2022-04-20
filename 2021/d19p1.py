@@ -7,7 +7,7 @@ INFILE = 'd19p1t1.txt'
 # Libraries
 # Standard Library:
 from collections import defaultdict
-from itertools import combinations
+from itertools import combinations, permutations
 from math import isclose, sqrt
 from pprint import pprint
 import re
@@ -68,6 +68,15 @@ class Scanner():
             b2x, b2y, b2z = b2
 
         return sqrt( (b2x - b1x)**2 + (b2y - b1y)**2 + (b2z - b1z)**2 )
+
+
+def check_vert_offsets(vert_offsets):
+    offsets = len(vert_offsets)
+    found_x = (vert_offsets[0][0] * offsets == sum(offset[0] for offset in vert_offsets))
+    found_y = (vert_offsets[0][1] * offsets == sum(offset[1] for offset in vert_offsets))
+    found_z = (vert_offsets[0][2] * offsets == sum(offset[2] for offset in vert_offsets))
+
+    return found_x, found_y, found_z
 
 
 def cmp_vertices(scanner1, scanner2):
@@ -164,13 +173,36 @@ def get_vert_edges(scanner):
 
 def get_vert_offsets(s1_verts_equiv, transform):
     s1_verts_dists = []
-    for s0v, s1v in s1_verts_equiv.items():
-        s0vx, s0vy, s0vz = s0v.label
-        s1vx, s1vy, s1vz = s1v.label
 
-        # Believe want to do match/case
-        if transform[0] == -1:
+    print(f'\n\nCalculating vertices offsets with transform of {transform}...')
+    for s0v, s1v in s1_verts_equiv.items():
+        abs_transform = list(map(abs, transform))
+        match abs_transform:
+            case 1, 2, 3:
+                s0vx, s0vy, s0vz = s0v.label
+                s1vx, s1vy, s1vz = s1v.label
+            case 1, 3, 2:
+                s0vx, s0vz, s0vy = s0v.label
+                s1vx, s1vz, s1vy = s1v.label
+            case 2, 1, 3:
+                s0vy, s0vx, s0vz = s0v.label
+                s1vy, s1vx, s1vz = s1v.label
+            case 2, 3, 1:
+                s0vy, s0vz, s0vx = s0v.label
+                s1vy, s1vz, s1vx = s1v.label
+            case 3, 1, 2:
+                s0vz, s0vx, s0vy = s0v.label
+                s1vz, s1vx, s1vy = s1v.label
+            case 3, 2, 1:
+                s0vz, s0vy, s0vx = s0v.label
+                s1vz, s1vy, s1vx = s1v.label
+
+        if -1 in transform:
             s1vx = -s1vx
+        if -2 in transform:
+            s1vy = -s1vy
+        if -3 in transform:
+            s1vz = -s1vz
 
         # The diff2's are the same but with opposite sign:
         xdiff1 = s0vx - s1vx
@@ -286,18 +318,34 @@ def main():
           (1, -2, -3), (-1, -2, 3), (-1, 2, -3), (-1, -2, -3)
         '''
 
-        transform = (1, 2, 3)
-        s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
-        print('\n\nScanner 0 vertices offsets versus Scanner 1:')
-        pprint(s1_vert_offsets)
+        for transform in permutations((1, 2, 3)):
+            s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
+            print('\nScanner 0 vertices offsets versus Scanner 1:')
+            pprint(s1_vert_offsets)
 
-        transform = (-1, 2, 3)
-        s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
-        print('\n\nScanner 0 vertices offsets versus Scanner 1:')
-        pprint(s1_vert_offsets)
+            if all(found_res := check_vert_offsets(s1_vert_offsets)):
+                print(f'Found scanner offset:  {s1_vert_offsets[0]}')
+            else:
+                found_x, found_y, found_z = found_res
+                transform = list(transform)
+                if not found_x:
+                    transform[0] = -transform[0]
+                if not found_y:
+                    transform[1] = -transform[1]
+                if not found_z:
+                    transform[2] = -transform[2]
+
+                # Re-run:
+                s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
+                print('\n\nScanner 0 vertices offsets versus Scanner 1 after negation:')
+                pprint(s1_vert_offsets)
+
+                if all(check_vert_offsets(s1_vert_offsets)):
+                    print(f'Found scanner offset:  {s1_vert_offsets[0]}')
+                    break
 
         # Start with just 0 and 1:
-        break
+        # break
 
     ### print(f'Found {len(same_verts)} matching vertices:')
     ### pprint(same_verts)
