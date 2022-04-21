@@ -18,6 +18,7 @@ from graph import Graph
 
 # Globals:
 MAX_DIST = sqrt( 1_000**2 + 1_000**2 + 1_000**2 )  # Approx: 1,732.0508
+MIN_SHARED_VERTICES = 12
 
 
 '''
@@ -144,11 +145,11 @@ def get_equiv_vertices(s1_vertices, s2_vertices, edges):
     for base_key, base_values in s1_verts.items():
         matched_nested = False
         for nested_key, nested_value in base_values.items():
-            if nested_value == 11 and not matched_nested:
+            if nested_value > 2 and not matched_nested:
                 matched_nested = True
                 s1_verts_equiv[base_key] = nested_key
-            elif nested_value == 11:
-                raise ValueError('Matched 11 more than once...')
+            elif nested_value > 2:
+                raise ValueError('Matched > 2 more than once...')
 
     '''
     # These are mirror image of above and not necessary:
@@ -173,28 +174,23 @@ def get_vert_edges(scanner):
 
 def get_vert_offsets(s1_verts_equiv, transform):
     s1_verts_dists = []
+    abs_transform = list(map(abs, transform))
 
     print(f'\n\nCalculating vertices offsets with transform of {transform}...')
     for s0v, s1v in s1_verts_equiv.items():
-        abs_transform = list(map(abs, transform))
+        s0vx, s0vy, s0vz = s0v.label
         match abs_transform:
             case 1, 2, 3:
-                s0vx, s0vy, s0vz = s0v.label
                 s1vx, s1vy, s1vz = s1v.label
             case 1, 3, 2:
-                s0vx, s0vz, s0vy = s0v.label
                 s1vx, s1vz, s1vy = s1v.label
             case 2, 1, 3:
-                s0vy, s0vx, s0vz = s0v.label
                 s1vy, s1vx, s1vz = s1v.label
             case 2, 3, 1:
-                s0vy, s0vz, s0vx = s0v.label
                 s1vy, s1vz, s1vx = s1v.label
             case 3, 1, 2:
-                s0vz, s0vx, s0vy = s0v.label
                 s1vz, s1vx, s1vy = s1v.label
             case 3, 2, 1:
-                s0vz, s0vy, s0vx = s0v.label
                 s1vz, s1vy, s1vx = s1v.label
 
         if -1 in transform:
@@ -294,55 +290,75 @@ def main():
             print()
             value.extend(edges)
 
-        s1_verts_equiv = get_equiv_vertices(s1_vertices, s2_vertices, edges)
-        print('Scanner 0 vertices (left) and corresponding scanner 1 vertices (right):')
-        pprint(s1_verts_equiv)
+        if min(len(s1_vertices), len(s2_vertices)) >= MIN_SHARED_VERTICES:
+            ### Temp ###
+            if (s1.id, s2.id) not in [(0, 1), (1, 4)]:
+                continue
+            ### Temp ###
+            s1_verts_equiv = get_equiv_vertices(s1_vertices, s2_vertices, edges)
+            print('Scanner 0 vertices (left) and corresponding scanner 1 vertices (right):')
+            pprint(s1_verts_equiv)
 
-        '''
-        ### Next Step:
-        * Figure out scanning rotation/facing direction by using 12 matching
-          beacons
+            '''
+            ### Next Step:
+            * Figure out scanning rotation/facing direction by using 12 matching
+            beacons
 
-          Each scanner is rotated some integer number of 90-degree turns around all
-          of the x, y, and z axes. That is, one scanner might call a direction positive
-          x, while another scanner might call that direction negative y. Or, two scanners
-          might agree on which direction is positive x, but one scanner might be upside-down
-          from the perspective of the other scanner. In total, each scanner could be in
-          any of 24 different orientations: facing positive or negative x, y, or z, and
-          considering any of four directions "up" from that facing.
+            Each scanner is rotated some integer number of 90-degree turns around all
+            of the x, y, and z axes. That is, one scanner might call a direction positive
+            x, while another scanner might call that direction negative y. Or, two scanners
+            might agree on which direction is positive x, but one scanner might be upside-down
+            from the perspective of the other scanner. In total, each scanner could be in
+            any of 24 different orientations: facing positive or negative x, y, or z, and
+            considering any of four directions "up" from that facing.
 
-        * Use transform to play with various permutations:
-          (1, 2, 3), (1, 3, 2), (2, 1, 3), (2, 3, 1), (3, 1, 2), (3, 2, 1)
-          -and-
-          (1, 2, 3), (1, 2, -3), (1, -2, 3), (-1, 2, 3),
-          (1, -2, -3), (-1, -2, 3), (-1, 2, -3), (-1, -2, -3)
-        '''
+            * Use transform to play with various permutations:
+            (1, 2, 3), (1, 3, 2), (2, 1, 3), (2, 3, 1), (3, 1, 2), (3, 2, 1)
+            -and-
+            (1, 2, 3), (1, 2, -3), (1, -2, 3), (-1, 2, 3),
+            (1, -2, -3), (-1, -2, 3), (-1, 2, -3), (-1, -2, -3)
 
-        for transform in permutations((1, 2, 3)):
-            s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
-            print('\nScanner 0 vertices offsets versus Scanner 1:')
-            pprint(s1_vert_offsets)
 
-            if all(found_res := check_vert_offsets(s1_vert_offsets)):
-                print(f'Found scanner offset:  {s1_vert_offsets[0]}')
-            else:
-                found_x, found_y, found_z = found_res
-                transform = list(transform)
-                if not found_x:
-                    transform[0] = -transform[0]
-                if not found_y:
-                    transform[1] = -transform[1]
-                if not found_z:
-                    transform[2] = -transform[2]
+            ### Next Step ###
+            For scanners 1 and 4, offset is (-3, 1, -2)
+            * Each time a column is discovered (+/- x|y|z) - need to save
+            * Not quite straight forward:  (-1, -3, -2) => valid y, means we now
+              have (*, *, -2)
+            * Then:  (2, 1, 3) => valid x, means we now have (*, 1, -2)
+            * Finally:  (-3, -2, -1) => valid z, means we now have (-3, 1, -2)
+            Need to put this in code below...
 
-                # Re-run:
+            Next step is transform the offset from 1 to 4 to offset from 0 to 4
+            '''
+
+            for transform in permutations((1, 2, 3)):
                 s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
-                print('\n\nScanner 0 vertices offsets versus Scanner 1 after negation:')
+                print('\nScanner 0 vertices offsets versus Scanner 1:')
                 pprint(s1_vert_offsets)
 
-                if all(check_vert_offsets(s1_vert_offsets)):
+                if all(found_res := check_vert_offsets(s1_vert_offsets)):
                     print(f'Found scanner offset:  {s1_vert_offsets[0]}')
-                    break
+                else:
+                    found_x, found_y, found_z = found_res
+                    transform = list(transform)
+                    if not found_x:
+                        transform[0] = -transform[0]
+                    if not found_y:
+                        transform[1] = -transform[1]
+                    if not found_z:
+                        transform[2] = -transform[2]
+
+                    # Re-run:
+                    s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
+                    print('\n\nScanner 0 vertices offsets versus Scanner 1 after negation:')
+                    pprint(s1_vert_offsets)
+
+                    if all(check_vert_offsets(s1_vert_offsets)):
+                        print(f'Found scanner offset:  {s1_vert_offsets[0]}')
+                        break
+        else:
+            print(f'Scanner {s1.id} and/or Scanner {s2.id} have less then {MIN_SHARED_VERTICES} '
+                   'vertices in common - skipping...')
 
         # Start with just 0 and 1:
         # break
