@@ -17,6 +17,7 @@ from graph import Graph
 
 
 # Globals:
+# See Scanner notes below
 MAX_DIST = sqrt( 1_000**2 + 1_000**2 + 1_000**2 )  # Approx: 1,732.0508
 MIN_SHARED_VERTICES = 12
 
@@ -122,7 +123,7 @@ def cmp_vertices(scanner1, scanner2):
     return s1_vertices, s2_vertices, matching_edges
 
 
-def cmp_vert_offsets(offset_res, transform, scanner_offset):
+def cmp_vert_offsets(offset_res, transform, scanner_offset, verbose=False):
     match offset_res:
         case True, True, True:
             scanner_offset = list(transform)
@@ -134,15 +135,18 @@ def cmp_vert_offsets(offset_res, transform, scanner_offset):
             if x:
                 index = transform.index(1) if transform.count(1) else transform.index(-1)
                 scanner_offset[index] = transform[index]
-                print(f'\nFound x, {scanner_offset=}')
+                if verbose:
+                    print(f'\nFound x, {scanner_offset=}')
             if y:
                 index = transform.index(2) if transform.count(2) else transform.index(-2)
                 scanner_offset[index] = transform[index]
-                print(f'\nFound y, {scanner_offset=}')
+                if verbose:
+                    print(f'\nFound y, {scanner_offset=}')
             if z:
                 index = transform.index(3) if transform.count(3) else transform.index(-3)
                 scanner_offset[index] = transform[index]
-                print(f'\nFound z, {scanner_offset=}')
+                if verbose:
+                    print(f'\nFound z, {scanner_offset=}')
 
             # Not sure I shouldn't use index like above...
             if not x:
@@ -183,18 +187,7 @@ def get_equiv_vertices(s1_vertices, s2_vertices, edges):
             elif nested_value > 2:
                 raise ValueError('Matched > 2 more than once...')
 
-    '''
-    # These are mirror image of above and not necessary:
-    s2_verts_equiv = {}
-    for base_key, base_values in s2_verts.items():
-        matched_nested = False
-        for nested_key, nested_value in base_values.items():
-            if nested_value == 11 and not matched_nested:
-                matched_nested = True
-                s2_verts_equiv[base_key] = nested_key
-            elif nested_value ==11 and matched_nested:
-                raise ValueError('Matched 11 more than once...')
-    '''
+    # Calculating s2_verts_equiv produces a mirror image of above - not necessary
 
     return s1_verts_equiv
 
@@ -204,11 +197,12 @@ def get_vert_edges(scanner):
             for vertex in scanner.graph.vertices()}
 
 
-def get_vert_offsets(s1_verts_equiv, transform):
+def get_vert_offsets(s1_verts_equiv, transform, verbose=False):
     s1_verts_dists = []
     abs_transform = list(map(abs, transform))
 
-    print(f'\n\nCalculating vertices offsets with transform of {transform}...')
+    if verbose:
+        print(f'\n\nCalculating vertices offsets with transform of {transform}...')
     for s0v, s1v in s1_verts_equiv.items():
         s0vx, s0vy, s0vz = s0v.label
         match abs_transform:
@@ -274,6 +268,36 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   distances are same
   * Finding matching sub-graph between scanners (weights between 12 vertices
     match)
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+* Figure out scanning rotation/facing direction by using 12 matching beacons:
+  * Each scanner is rotated some integer number of 90-degree turns around all
+    of the x, y, and z axes. That is, one scanner might call a direction
+    positive x, while another scanner might call that direction negative y. Or,
+    two scanners might agree on which direction is positive x, but one scanner
+    might be upside-down from the perspective of the other scanner. In total,
+    each scanner could be in any of 24 different orientations: facing positive
+    or negative x, y, or z, and considering any of four directions "up" from
+    that facing.
+
+* Use transform to play with various permutations:
+  (1, 2, 3), (1, 3, 2), (2, 1, 3), (2, 3, 1), (3, 1, 2), (3, 2, 1)
+  -and-
+  (1, 2, 3), (1, 2, -3), (1, -2, 3), (-1, 2, 3),
+  (1, -2, -3), (-1, -2, 3), (-1, 2, -3), (-1, -2, -3)
+
+* For scanners 1 and 4, offset is (-3, 1, -2)
+  * Each time a column is discovered (+/- x|y|z) - need to save
+  * Not quite straight forward:  (-1, -3, -2) => valid y, means we now
+    have (*, *, -2)
+  * Then:  (2, 1, 3) => valid x, means we now have (*, 1, -2)
+  * Finally:  (-3, -2, -1) => valid z, means we now have (-3, 1, -2)
+Need to put this in code below...
+
+Next step is transform the offset from 1 to 4 to offset from 0 to 4
+
+Need to figure out how Scanner's 0 & 1 beacons related to Scanner
+1 & 4...
 '''
 def main():
     scanners = []
@@ -309,83 +333,37 @@ def main():
         #pprint(get_vert_edges(scanner))
         #print()
 
+    '''
+    ### Next Step...
+
+    Can't figure out how to get Offset from Scanner 0 for Scanner 2...
+    '''
     # Find matching vertices in pairs of scanners
-    same_verts = {k: [] for k in combinations(scanners, 2)}
+    #!# same_verts = {k: [] for k in combinations(scanners, 2)}
+    same_verts = {(scanners[4], scanners[2]): []}
     for key, value in same_verts.items():
         s1, s2 = key
         s1_vertices, s2_vertices, edges = cmp_vertices(s1, s2)
         if edges:
-            print(f'\n\nFor scanner {s1.id} and scanner {s2.id} found {len(edges)} matching edges.')
-            print(f'\nScanner {s1.id} overlapping vertices - {len(s1_vertices)}:\n{[str(i) for i in s1_vertices]}')
-            print(f'\nScanner {s2.id} overlapping vertices - {len(s2_vertices)}:\n{[str(i) for i in s2_vertices]}\n')
+            ### print(f'\n\nFor scanner {s1.id} and scanner {s2.id} found {len(edges)} matching edges.')
+            ### print(f'\nScanner {s1.id} overlapping vertices - {len(s1_vertices)}:\n{[str(i) for i in s1_vertices]}')
+            ### print(f'\nScanner {s2.id} overlapping vertices - {len(s2_vertices)}:\n{[str(i) for i in s2_vertices]}\n')
             # pprint(edges)
-            print()
+            print(f'\n\nScanner {s1.id} and scanner {s2.id} have {len(s2_vertices)} '
+                   'overlapping vertices.')
             value.extend(edges)
 
         if min(len(s1_vertices), len(s2_vertices)) >= MIN_SHARED_VERTICES:
-            ### Temp ###
-            if (s1.id, s2.id) not in [(0, 1), (1, 4)]:
-                continue
-            ### Temp ###
             s1_verts_equiv = get_equiv_vertices(s1_vertices, s2_vertices, edges)
             print('Scanner 0 vertices (left) and corresponding scanner 1 vertices (right):')
             pprint(s1_verts_equiv)
 
-            '''
-            ### Next Step:
-            * Figure out scanning rotation/facing direction by using 12 matching
-            beacons
-
-            Each scanner is rotated some integer number of 90-degree turns around all
-            of the x, y, and z axes. That is, one scanner might call a direction positive
-            x, while another scanner might call that direction negative y. Or, two scanners
-            might agree on which direction is positive x, but one scanner might be upside-down
-            from the perspective of the other scanner. In total, each scanner could be in
-            any of 24 different orientations: facing positive or negative x, y, or z, and
-            considering any of four directions "up" from that facing.
-
-            * Use transform to play with various permutations:
-            (1, 2, 3), (1, 3, 2), (2, 1, 3), (2, 3, 1), (3, 1, 2), (3, 2, 1)
-            -and-
-            (1, 2, 3), (1, 2, -3), (1, -2, 3), (-1, 2, 3),
-            (1, -2, -3), (-1, -2, 3), (-1, 2, -3), (-1, -2, -3)
-
-
-            For scanners 1 and 4, offset is (-3, 1, -2)
-            * Each time a column is discovered (+/- x|y|z) - need to save
-            * Not quite straight forward:  (-1, -3, -2) => valid y, means we now
-              have (*, *, -2)
-            * Then:  (2, 1, 3) => valid x, means we now have (*, 1, -2)
-            * Finally:  (-3, -2, -1) => valid z, means we now have (-3, 1, -2)
-            Need to put this in code below...
-
-            Next step is transform the offset from 1 to 4 to offset from 0 to 4
-
-
-            ### Next Step ###
-            Need to figure out how Scanner's 0 & 1 beacons related to Scanner
-            1 & 4...
-            '''
 
             scanner_offset = [None, None, None]
             for transform in permutations((1, 2, 3)):
                 s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
-                print('\nScanner 0 vertices offsets versus Scanner 1:')
-                pprint(s1_vert_offsets)
-
-                '''
-                if all(found_res := check_vert_offsets(s1_vert_offsets)):
-                    print(f'Found scanner offset:  {s1_vert_offsets[0]}')
-                else:
-                    found_x, found_y, found_z = found_res
-                    transform = list(transform)
-                    if not found_x:
-                        transform[0] = -transform[0]
-                    if not found_y:
-                        transform[1] = -transform[1]
-                    if not found_z:
-                        transform[2] = -transform[2]
-                '''
+                ### print('\nScanner 0 vertices offsets versus Scanner 1:')
+                ### pprint(s1_vert_offsets)
 
                 offset_res = check_vert_offsets(s1_vert_offsets)
                 scanner_offset, transform = cmp_vert_offsets(offset_res, transform, scanner_offset)
@@ -393,8 +371,8 @@ def main():
                 if not all(scanner_offset):
                     # Re-run:
                     s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
-                    print('\n\nScanner 0 vertices offsets versus Scanner 1 after negation:')
-                    pprint(s1_vert_offsets)
+                    ### print('\n\nScanner 0 vertices offsets versus Scanner 1 after negation:')
+                    ### pprint(s1_vert_offsets)
 
                     offset_res = check_vert_offsets(s1_vert_offsets)
                     scanner_offset, transform = cmp_vert_offsets(offset_res, transform, scanner_offset)
@@ -408,15 +386,6 @@ def main():
         else:
             print(f'Scanner {s1.id} and/or Scanner {s2.id} have less then {MIN_SHARED_VERTICES} '
                    'vertices in common - skipping...')
-
-        # Start with just 0 and 1:
-        # break
-
-    ### print(f'Found {len(same_verts)} matching vertices:')
-    ### pprint(same_verts)
-
-    # Temporary:
-    return scanners
 
 
 if __name__ == '__main__':
