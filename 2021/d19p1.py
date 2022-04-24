@@ -29,7 +29,7 @@ Scanner can see beacons up to 1,000 units away on each axis:
 class Scanner():
     def __init__(self, id, beacons=None):
         self.id = id
-        self.beacons = tuple(beacons) if isinstance(beacons, (list, tuple)) else None
+        self.beacons = set(beacons) if isinstance(beacons, (list, tuple)) else None
         if self.beacons is None:
             raise ValueError('Current design assumes Scanner only created with sequence of beacons')
 
@@ -55,7 +55,8 @@ class Scanner():
                 vertex1 = self.graph.insert_vertex(coords1)
             if (vertex2 := self.graph.get_vertex(coords2)) is None:
                 vertex2 = self.graph.insert_vertex(coords2)
-            self.graph.insert_edge(vertex1, vertex2, dist)
+            if not self.graph.get_edge(vertex1, vertex2):
+                self.graph.insert_edge(vertex1, vertex2, dist)
 
     def distance(self, b1, b2, byind=True):
         '''
@@ -239,6 +240,34 @@ def get_vert_offsets(s1_verts_equiv, transform, verbose=False):
     return s1_verts_dists
 
 
+def vert_adj(vertex, offsets):
+    return tuple(vert + off for vert, off in zip(vertex, offsets))
+
+
+def vert_transform(vertex, offsets):
+    x_index = offsets.index(1) if offsets.count(1) else offsets.index(-1)
+    y_index = offsets.index(2) if offsets.count(2) else offsets.index(-2)
+    z_index = offsets.index(3) if offsets.count(3) else offsets.index(-3)
+
+    new_vertex = [None, None, None]
+    new_vertex[x_index] = vertex[x_index]
+    new_vertex[y_index] = vertex[y_index]
+    new_vertex[z_index] = vertex[z_index]
+
+    xoff = offsets[x_index]
+    yoff = offsets[y_index]
+    zoff = offsets[z_index]
+
+    if xoff == -1:
+        new_vertex[x_index] = -new_vertex[x_index]
+    if yoff == -2:
+        new_vertex[y_index] = -new_vertex[y_index]
+    if zoff == -3:
+        new_vertex[z_index] = -new_vertex[z_index]
+
+    return new_vertex
+
+
 '''
 Start here:
 * Simpler solution:
@@ -340,7 +369,8 @@ def main():
     '''
     # Find matching vertices in pairs of scanners
     #!# same_verts = {k: [] for k in combinations(scanners, 2)}
-    same_verts = {(scanners[4], scanners[2]): []}
+    #!# same_verts = {(scanners[4], scanners[2]): []}
+    same_verts = {(scanners[0], scanners[1]): []}
     for key, value in same_verts.items():
         s1, s2 = key
         s1_vertices, s2_vertices, edges = cmp_vertices(s1, s2)
@@ -355,7 +385,7 @@ def main():
 
         if min(len(s1_vertices), len(s2_vertices)) >= MIN_SHARED_VERTICES:
             s1_verts_equiv = get_equiv_vertices(s1_vertices, s2_vertices, edges)
-            print('Scanner 0 vertices (left) and corresponding scanner 1 vertices (right):')
+            print('Left scanner vertices and corresponding right scanner vertices:')
             pprint(s1_verts_equiv)
 
 
@@ -383,6 +413,22 @@ def main():
             # Don't assume current result is OK - could have found offsets piecemeal:
             s1_vert_offsets = get_vert_offsets(s1_verts_equiv, scanner_offset)
             print(f'Found scanner offset ({scanner_offset}):  {s1_vert_offsets[0]}')
+
+            # Now rotate each vertex and add to scanner 0:
+            for vertex in s2.graph.vertices():
+                vlabel = vertex.label
+                # Transform vertex using scanner_offset
+                vlabel = vert_transform(vlabel, scanner_offset)
+                # Adjust vertex using s1_vert_offsets[0]
+                vlabel = vert_adj(vlabel, s1_vert_offsets[0])
+                # Add vertex to Scanner 0:
+                scanners[0].beacons.add(vlabel)
+            # Process new vertices:
+            scanners[0]._build_graph()
+            # Show:
+            print(f'Scanner 0 now has {scanners[0].graph.vertex_count()} vertices:')
+            pprint(tuple(scanners[0].graph.vertices()))
+
         else:
             print(f'Scanner {s1.id} and/or Scanner {s2.id} have less then {MIN_SHARED_VERTICES} '
                    'vertices in common - skipping...')
