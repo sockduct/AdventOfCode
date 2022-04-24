@@ -370,7 +370,10 @@ def main():
     # Find matching vertices in pairs of scanners
     #!# same_verts = {k: [] for k in combinations(scanners, 2)}
     #!# same_verts = {(scanners[4], scanners[2]): []}
-    same_verts = {(scanners[0], scanners[1]): []}
+    path_to_s0 = {}
+    same_verts = {(scanners[0], scanners[1]): [],
+                  (scanners[1], scanners[3]): [],
+                  (scanners[1], scanners[4]): []}
     for key, value in same_verts.items():
         s1, s2 = key
         s1_vertices, s2_vertices, edges = cmp_vertices(s1, s2)
@@ -415,12 +418,27 @@ def main():
             print(f'Found scanner offset ({scanner_offset}):  {s1_vert_offsets[0]}')
 
             # Now rotate each vertex and add to scanner 0:
+            # If s1 not scanner 0, need to find additional transformation to get
+            # to scanner 0
+            if s1.id == 0:
+                path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0])
+                additional_offset = None
+            elif s1.id in path_to_s0:
+                # Adjust scanner_offset to factor in additional transformations:
+                additional_offset = path_to_s0[s1.id]
+            else:
+                raise LookupError('Unable to find path to Scanner 0 for sequence '
+                                  f'Scanner {s1.id} => Scanner {s2.id}')
             for vertex in s2.graph.vertices():
                 vlabel = vertex.label
                 # Transform vertex using scanner_offset
                 vlabel = vert_transform(vlabel, scanner_offset)
                 # Adjust vertex using s1_vert_offsets[0]
                 vlabel = vert_adj(vlabel, s1_vert_offsets[0])
+                # Check for additional transformations:
+                if additional_offset:
+                    vlabel = vert_transform(vlabel, additional_offset[0])
+                    vlabel = vert_adj(vlabel, additional_offset[1])
                 # Add vertex to Scanner 0:
                 scanners[0].beacons.add(vlabel)
             # Process new vertices:
