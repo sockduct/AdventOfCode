@@ -89,7 +89,6 @@ def cmp_vertices(scanner1, scanner2):
     matching_edges = []
     s1_edges = []
     s2_edges = []
-    # max_dist = 1_000
     max_dist = MAX_DIST
 
     edges1 = sorted(scanner1.graph.edges())
@@ -200,32 +199,13 @@ def get_vert_edges(scanner):
 
 def get_vert_offsets(s1_verts_equiv, transform, verbose=False):
     s1_verts_dists = []
-    abs_transform = list(map(abs, transform))
 
     if verbose:
         print(f'\n\nCalculating vertices offsets with transform of {transform}...')
     for s0v, s1v in s1_verts_equiv.items():
         s0vx, s0vy, s0vz = s0v.label
-        match abs_transform:
-            case 1, 2, 3:
-                s1vx, s1vy, s1vz = s1v.label
-            case 1, 3, 2:
-                s1vx, s1vz, s1vy = s1v.label
-            case 2, 1, 3:
-                s1vy, s1vx, s1vz = s1v.label
-            case 2, 3, 1:
-                s1vy, s1vz, s1vx = s1v.label
-            case 3, 1, 2:
-                s1vz, s1vx, s1vy = s1v.label
-            case 3, 2, 1:
-                s1vz, s1vy, s1vx = s1v.label
-
-        if -1 in transform:
-            s1vx = -s1vx
-        if -2 in transform:
-            s1vy = -s1vy
-        if -3 in transform:
-            s1vz = -s1vz
+        # This is tricky - just do in one place:
+        s1vx, s1vy, s1vz = vert_transform(s1v.label, transform)
 
         # The diff2's are the same but with opposite sign:
         xdiff1 = s0vx - s1vx
@@ -249,10 +229,19 @@ def vert_transform(vertex, offsets):
     y_index = offsets.index(2) if offsets.count(2) else offsets.index(-2)
     z_index = offsets.index(3) if offsets.count(3) else offsets.index(-3)
 
-    new_vertex = [None, None, None]
-    new_vertex[x_index] = vertex[x_index]
-    new_vertex[y_index] = vertex[y_index]
-    new_vertex[z_index] = vertex[z_index]
+    match (x_index, y_index, z_index):
+        case 0, 1, 2:
+            new_vertex = [vertex[0], vertex[1], vertex[2]]
+        case 0, 2, 1:
+            new_vertex = [vertex[0], vertex[2], vertex[1]]
+        case 1, 0, 2:
+            new_vertex = [vertex[1], vertex[0], vertex[2]]
+        case 1, 2, 0:
+            new_vertex = [vertex[2], vertex[0], vertex[1]]
+        case 2, 0, 1:
+            new_vertex = [vertex[1], vertex[2], vertex[0]]
+        case 2, 1, 0:
+            new_vertex = [vertex[2], vertex[1], vertex[0]]
 
     xoff = offsets[x_index]
     yoff = offsets[y_index]
@@ -371,9 +360,11 @@ def main():
     #!# same_verts = {k: [] for k in combinations(scanners, 2)}
     #!# same_verts = {(scanners[4], scanners[2]): []}
     path_to_s0 = {}
+    #!# same_verts = {(scanners[1], scanners[4]): []}
     same_verts = {(scanners[0], scanners[1]): [],
                   (scanners[1], scanners[3]): [],
-                  (scanners[1], scanners[4]): []}
+                  (scanners[1], scanners[4]): [],
+                  (scanners[4], scanners[2]): []}
     for key, value in same_verts.items():
         s1, s2 = key
         s1_vertices, s2_vertices, edges = cmp_vertices(s1, s2)
@@ -395,7 +386,7 @@ def main():
             scanner_offset = [None, None, None]
             for transform in permutations((1, 2, 3)):
                 s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
-                ### print('\nScanner 0 vertices offsets versus Scanner 1:')
+                ### print(f'\nScanner 0 vertices offsets versus Scanner 1 with transform {transform}:')
                 ### pprint(s1_vert_offsets)
 
                 offset_res = check_vert_offsets(s1_vert_offsets)
@@ -404,7 +395,8 @@ def main():
                 if not all(scanner_offset):
                     # Re-run:
                     s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
-                    ### print('\n\nScanner 0 vertices offsets versus Scanner 1 after negation:')
+                    ### print('\n\nScanner 0 vertices offsets versus Scanner 1 after negation '
+                    ###       f'({transform}):')
                     ### pprint(s1_vert_offsets)
 
                     offset_res = check_vert_offsets(s1_vert_offsets)
@@ -424,6 +416,7 @@ def main():
                 path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0])
                 additional_offset = None
             elif s1.id in path_to_s0:
+                path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0])
                 # Adjust scanner_offset to factor in additional transformations:
                 additional_offset = path_to_s0[s1.id]
             else:
@@ -436,6 +429,8 @@ def main():
                 # Adjust vertex using s1_vert_offsets[0]
                 vlabel = vert_adj(vlabel, s1_vert_offsets[0])
                 # Check for additional transformations:
+                ### Current Next Step:
+                # Need to do this recursively...
                 if additional_offset:
                     vlabel = vert_transform(vlabel, additional_offset[0])
                     vlabel = vert_adj(vlabel, additional_offset[1])
@@ -444,8 +439,8 @@ def main():
             # Process new vertices:
             scanners[0]._build_graph()
             # Show:
-            print(f'Scanner 0 now has {scanners[0].graph.vertex_count()} vertices:')
-            pprint(tuple(scanners[0].graph.vertices()))
+            print(f'Scanner 0 now has {scanners[0].graph.vertex_count()} vertices')
+            ### pprint(tuple(scanners[0].graph.vertices()))
 
         else:
             print(f'Scanner {s1.id} and/or Scanner {s2.id} have less then {MIN_SHARED_VERTICES} '
