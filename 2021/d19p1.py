@@ -224,37 +224,10 @@ def vert_adj(vertex, offsets):
     return tuple(vert + off for vert, off in zip(vertex, offsets))
 
 
-def vert_transform(vertex, offsets):
-    x_index = offsets.index(1) if offsets.count(1) else offsets.index(-1)
-    y_index = offsets.index(2) if offsets.count(2) else offsets.index(-2)
-    z_index = offsets.index(3) if offsets.count(3) else offsets.index(-3)
+def vert_transform(vertex, offset):
+    sign = lambda x: -1 if x < 0 else 1
 
-    match (x_index, y_index, z_index):
-        case 0, 1, 2:
-            new_vertex = [vertex[0], vertex[1], vertex[2]]
-        case 0, 2, 1:
-            new_vertex = [vertex[0], vertex[2], vertex[1]]
-        case 1, 0, 2:
-            new_vertex = [vertex[1], vertex[0], vertex[2]]
-        case 1, 2, 0:
-            new_vertex = [vertex[2], vertex[0], vertex[1]]
-        case 2, 0, 1:
-            new_vertex = [vertex[1], vertex[2], vertex[0]]
-        case 2, 1, 0:
-            new_vertex = [vertex[2], vertex[1], vertex[0]]
-
-    xoff = offsets[x_index]
-    yoff = offsets[y_index]
-    zoff = offsets[z_index]
-
-    if xoff == -1:
-        new_vertex[x_index] = -new_vertex[x_index]
-    if yoff == -2:
-        new_vertex[y_index] = -new_vertex[y_index]
-    if zoff == -3:
-        new_vertex[z_index] = -new_vertex[z_index]
-
-    return new_vertex
+    return [vertex[abs(offind) - 1] * sign(offind) for offind in offset]
 
 
 '''
@@ -413,12 +386,16 @@ def main():
             # If s1 not scanner 0, need to find additional transformation to get
             # to scanner 0
             if s1.id == 0:
-                path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0])
+                ### Added, 0 to tuple - may require refactoring:
+                path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0], 0)
                 additional_offset = None
             elif s1.id in path_to_s0:
-                path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0])
+                ### Added, s1.id to tuple - may require refactoring and not
+                ### positive this is correct:
+                path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0], s1.id)
                 # Adjust scanner_offset to factor in additional transformations:
-                additional_offset = path_to_s0[s1.id]
+                while True:
+                    additional_offset = [path_to_s0[s1.id]]
             else:
                 raise LookupError('Unable to find path to Scanner 0 for sequence '
                                   f'Scanner {s1.id} => Scanner {s2.id}')
