@@ -385,17 +385,20 @@ def main():
             # Now rotate each vertex and add to scanner 0:
             # If s1 not scanner 0, need to find additional transformation to get
             # to scanner 0
+            additional_offset = []
             if s1.id == 0:
-                ### Added, 0 to tuple - may require refactoring:
                 path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0], 0)
-                additional_offset = None
             elif s1.id in path_to_s0:
-                ### Added, s1.id to tuple - may require refactoring and not
-                ### positive this is correct:
                 path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0], s1.id)
                 # Adjust scanner_offset to factor in additional transformations:
+                target = s1.id
                 while True:
-                    additional_offset = [path_to_s0[s1.id]]
+                    additional_offset.append(path_to_s0[target])
+                    if (target := additional_offset[-1][2]) == 0:
+                        break
+                    elif target not in path_to_s0:
+                        raise LookupError('Unable to find path to Scanner 0 from '
+                                          f'Scanner {target}')
             else:
                 raise LookupError('Unable to find path to Scanner 0 for sequence '
                                   f'Scanner {s1.id} => Scanner {s2.id}')
@@ -406,11 +409,9 @@ def main():
                 # Adjust vertex using s1_vert_offsets[0]
                 vlabel = vert_adj(vlabel, s1_vert_offsets[0])
                 # Check for additional transformations:
-                ### Current Next Step:
-                # Need to do this recursively...
-                if additional_offset:
-                    vlabel = vert_transform(vlabel, additional_offset[0])
-                    vlabel = vert_adj(vlabel, additional_offset[1])
+                for offset in additional_offset:
+                    vlabel = vert_transform(vlabel, offset[0])
+                    vlabel = vert_adj(vlabel, offset[1])
                 # Add vertex to Scanner 0:
                 scanners[0].beacons.add(vlabel)
             # Process new vertices:
@@ -418,7 +419,6 @@ def main():
             # Show:
             print(f'Scanner 0 now has {scanners[0].graph.vertex_count()} vertices')
             ### pprint(tuple(scanners[0].graph.vertices()))
-
         else:
             print(f'Scanner {s1.id} and/or Scanner {s2.id} have less then {MIN_SHARED_VERTICES} '
                    'vertices in common - skipping...')
