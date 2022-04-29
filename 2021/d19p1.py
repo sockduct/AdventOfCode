@@ -283,12 +283,6 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
     have (*, *, -2)
   * Then:  (2, 1, 3) => valid x, means we now have (*, 1, -2)
   * Finally:  (-3, -2, -1) => valid z, means we now have (-3, 1, -2)
-Need to put this in code below...
-
-Next step is transform the offset from 1 to 4 to offset from 0 to 4
-
-Need to figure out how Scanner's 0 & 1 beacons related to Scanner
-1 & 4...
 '''
 def main():
     scanners = []
@@ -324,20 +318,24 @@ def main():
         #pprint(get_vert_edges(scanner))
         #print()
 
-    '''
-    ### Next Step...
-
-    Can't figure out how to get Offset from Scanner 0 for Scanner 2...
-    '''
     # Find matching vertices in pairs of scanners
-    #!# same_verts = {k: [] for k in combinations(scanners, 2)}
-    #!# same_verts = {(scanners[4], scanners[2]): []}
+    same_verts = {k: [] for k in combinations(scanners, 2)}
     path_to_s0 = {}
-    #!# same_verts = {(scanners[1], scanners[4]): []}
+    '''
     same_verts = {(scanners[0], scanners[1]): [],
                   (scanners[1], scanners[3]): [],
                   (scanners[1], scanners[4]): [],
                   (scanners[4], scanners[2]): []}
+    '''
+    '''
+    Next Steps:
+    * Change same_verts on 322 to use permutations vs. combinations so have forward
+      and reverse
+    * Collect offset and vertex rotation for each first (pass 1)
+    * Then iterate through collection above for each pair trying forward and reverse
+      if necessary
+    * Clean up so modular and minimize repetition
+    '''
     for key, value in same_verts.items():
         s1, s2 = key
         s1_vertices, s2_vertices, edges = cmp_vertices(s1, s2)
@@ -396,7 +394,31 @@ def main():
                     additional_offset.append(path_to_s0[target])
                     if (target := additional_offset[-1][2]) == 0:
                         break
-                    elif target not in path_to_s0:
+                    elif target in path_to_s0:
+                        continue
+                    else:
+                        raise LookupError('Unable to find path to Scanner 0 from '
+                                          f'Scanner {target}')
+            # Before giving up, try reversing order of scanners:
+            elif s2.id in path_to_s0:
+                print(f"Couldn't find path to Scanner 0 from Scanner {s2.id} => {s1.id}, "
+                      "swapping...")
+                # Swap:
+                s1, s2 = s2, s1
+                s1_vertices, s2_vertices, edges = cmp_vertices(s1, s2)
+                s1_verts_equiv = get_equiv_vertices(s1_vertices, s2_vertices, edges)
+                s1_vert_offsets = get_vert_offsets(s1_verts_equiv, scanner_offset)
+                print(f'New scanner offset ({scanner_offset}):  {s1_vert_offsets[0]}')
+                path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0], s1.id)
+                # Adjust scanner_offset to factor in additional transformations:
+                target = s1.id
+                while True:
+                    additional_offset.append(path_to_s0[target])
+                    if (target := additional_offset[-1][2]) == 0:
+                        break
+                    elif target in path_to_s0:
+                        continue
+                    else:
                         raise LookupError('Unable to find path to Scanner 0 from '
                                           f'Scanner {target}')
             else:
