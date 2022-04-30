@@ -192,6 +192,12 @@ def get_equiv_vertices(s1_vertices, s2_vertices, edges):
     return s1_verts_equiv
 
 
+def get_scanner_offsets(s1_verts_equiv, transform, scanner_offset):
+    s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
+    offset_res = check_vert_offsets(s1_vert_offsets)
+    return cmp_vert_offsets(offset_res, transform, scanner_offset)
+
+
 def get_vert_edges(scanner):
     return {vertex.label: sorted(scanner.graph.incident_edges(vertex))
             for vertex in scanner.graph.vertices()}
@@ -222,6 +228,14 @@ def get_vert_offsets(s1_verts_equiv, transform, verbose=False):
 
 def vert_adj(vertex, offsets):
     return tuple(vert + off for vert, off in zip(vertex, offsets))
+
+
+def vert_rotate(vlabel, transform, offset):
+    # Transform vertex using transform
+    vlabel = vert_transform(vlabel, transform)
+
+    # Adjust vertex using offset
+    return vert_adj(vlabel, offset)
 
 
 def vert_transform(vertex, offset):
@@ -315,23 +329,14 @@ def main():
     print('Read in:')
     for scanner in scanners:
         print(f'Scanner {scanner.id} graph:  {scanner.graph!r}')
-        #pprint(get_vert_edges(scanner))
-        #print()
+    print('='*72 + '\n')
 
     # Find matching vertices in pairs of scanners
-    same_verts = {k: [] for k in combinations(scanners, 2)}
+    same_verts = {k: [] for k in permutations(scanners, 2)}
+    scanner_offsets = {}
     path_to_s0 = {}
     '''
-    same_verts = {(scanners[0], scanners[1]): [],
-                  (scanners[1], scanners[3]): [],
-                  (scanners[1], scanners[4]): [],
-                  (scanners[4], scanners[2]): []}
-    '''
-    '''
     Next Steps:
-    * Change same_verts on 322 to use permutations vs. combinations so have forward
-      and reverse
-    * Collect offset and vertex rotation for each first (pass 1)
     * Then iterate through collection above for each pair trying forward and reverse
       if necessary
     * Clean up so modular and minimize repetition
@@ -340,38 +345,22 @@ def main():
         s1, s2 = key
         s1_vertices, s2_vertices, edges = cmp_vertices(s1, s2)
         if edges:
-            ### print(f'\n\nFor scanner {s1.id} and scanner {s2.id} found {len(edges)} matching edges.')
-            ### print(f'\nScanner {s1.id} overlapping vertices - {len(s1_vertices)}:\n{[str(i) for i in s1_vertices]}')
-            ### print(f'\nScanner {s2.id} overlapping vertices - {len(s2_vertices)}:\n{[str(i) for i in s2_vertices]}\n')
-            # pprint(edges)
-            print(f'\n\nScanner {s1.id} and scanner {s2.id} have {len(s2_vertices)} '
-                   'overlapping vertices.')
             value.extend(edges)
 
         if min(len(s1_vertices), len(s2_vertices)) >= MIN_SHARED_VERTICES:
             s1_verts_equiv = get_equiv_vertices(s1_vertices, s2_vertices, edges)
-            print('Left scanner vertices and corresponding right scanner vertices:')
-            pprint(s1_verts_equiv)
-
+            print(f'\nScanner {s1.id} and scanner {s2.id} have {len(s2_vertices)} '
+                  'overlapping vertices.')
+            if s1.id < s2.id:
+                print('Left scanner vertices and corresponding right scanner vertices:')
+                pprint(s1_verts_equiv)
 
             scanner_offset = [None, None, None]
             for transform in permutations((1, 2, 3)):
-                s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
-                ### print(f'\nScanner 0 vertices offsets versus Scanner 1 with transform {transform}:')
-                ### pprint(s1_vert_offsets)
-
-                offset_res = check_vert_offsets(s1_vert_offsets)
-                scanner_offset, transform = cmp_vert_offsets(offset_res, transform, scanner_offset)
+                scanner_offset, transform = get_scanner_offsets(s1_verts_equiv, transform, scanner_offset)
 
                 if not all(scanner_offset):
-                    # Re-run:
-                    s1_vert_offsets = get_vert_offsets(s1_verts_equiv, transform)
-                    ### print('\n\nScanner 0 vertices offsets versus Scanner 1 after negation '
-                    ###       f'({transform}):')
-                    ### pprint(s1_vert_offsets)
-
-                    offset_res = check_vert_offsets(s1_vert_offsets)
-                    scanner_offset, transform = cmp_vert_offsets(offset_res, transform, scanner_offset)
+                    scanner_offset, transform = get_scanner_offsets(s1_verts_equiv, transform, scanner_offset)
 
                 if all(scanner_offset):
                     break
@@ -380,70 +369,70 @@ def main():
             s1_vert_offsets = get_vert_offsets(s1_verts_equiv, scanner_offset)
             print(f'Found scanner offset ({scanner_offset}):  {s1_vert_offsets[0]}')
 
-            # Now rotate each vertex and add to scanner 0:
-            # If s1 not scanner 0, need to find additional transformation to get
-            # to scanner 0
-            additional_offset = []
-            if s1.id == 0:
-                path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0], 0)
-            elif s1.id in path_to_s0:
-                path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0], s1.id)
-                # Adjust scanner_offset to factor in additional transformations:
-                target = s1.id
-                while True:
-                    additional_offset.append(path_to_s0[target])
-                    if (target := additional_offset[-1][2]) == 0:
-                        break
-                    elif target in path_to_s0:
-                        continue
-                    else:
-                        raise LookupError('Unable to find path to Scanner 0 from '
-                                          f'Scanner {target}')
-            # Before giving up, try reversing order of scanners:
-            elif s2.id in path_to_s0:
-                print(f"Couldn't find path to Scanner 0 from Scanner {s2.id} => {s1.id}, "
-                      "swapping...")
-                # Swap:
-                s1, s2 = s2, s1
-                s1_vertices, s2_vertices, edges = cmp_vertices(s1, s2)
-                s1_verts_equiv = get_equiv_vertices(s1_vertices, s2_vertices, edges)
-                s1_vert_offsets = get_vert_offsets(s1_verts_equiv, scanner_offset)
-                print(f'New scanner offset ({scanner_offset}):  {s1_vert_offsets[0]}')
-                path_to_s0[s2.id] = (scanner_offset, s1_vert_offsets[0], s1.id)
-                # Adjust scanner_offset to factor in additional transformations:
-                target = s1.id
-                while True:
-                    additional_offset.append(path_to_s0[target])
-                    if (target := additional_offset[-1][2]) == 0:
-                        break
-                    elif target in path_to_s0:
-                        continue
-                    else:
-                        raise LookupError('Unable to find path to Scanner 0 from '
-                                          f'Scanner {target}')
-            else:
-                raise LookupError('Unable to find path to Scanner 0 for sequence '
-                                  f'Scanner {s1.id} => Scanner {s2.id}')
+            # Store (s1.id, s2.id), transform, scanner_offset
+            scanner_offsets[(s1.id, s2.id)] = (s1, s2, scanner_offset, s1_vert_offsets[0])
+        else:
+            print(f'\nScanner {s1.id} and/or Scanner {s2.id} have less then {MIN_SHARED_VERTICES} '
+                   'vertices in common - skipping...')
+
+    complete = set()
+    for keys, values in scanner_offsets.items():
+        s1, s2, transform, offset = values
+        print(f'Processing Scanners {s1.id}, {s2.id}...')
+
+        if keys in complete:
+            print('Already completed - skipping...')
+            continue
+
+        ### print(f'Scanners {s1.id}, {s2.id}:  {transform=}, {offset=}')
+
+        # Now rotate each vertex and add to scanner 0:
+        # If s1 not scanner 0, need to find additional transformation to get to
+        # scanner 0
+        try:
             for vertex in s2.graph.vertices():
                 vlabel = vertex.label
-                # Transform vertex using scanner_offset
-                vlabel = vert_transform(vlabel, scanner_offset)
-                # Adjust vertex using s1_vert_offsets[0]
-                vlabel = vert_adj(vlabel, s1_vert_offsets[0])
-                # Check for additional transformations:
-                for offset in additional_offset:
-                    vlabel = vert_transform(vlabel, offset[0])
-                    vlabel = vert_adj(vlabel, offset[1])
+                vlabel = vert_rotate(vlabel, transform, offset)
+
+                # Check if additional transformations needed:
+                first = s1.id
+                while first != 0:
+                    if (0, first) in scanner_offsets:
+                        s1a, _, transform, offset = scanner_offsets[(0, first)]
+                        first = s1a.id
+                        vlabel = vert_rotate(vlabel, transform, offset)
+                    else:
+                        found = False
+                        for i in range(1, first):
+                            if (i, first) in scanner_offsets:
+                                found = True
+                                s1a, _, transform, offset = scanner_offsets[(i, first)]
+                                first = s1a.id
+                                vlabel = vert_rotate(vlabel, transform, offset)
+                                break
+
+                        if not found:
+                            raise LookupError(f"Couldn't find path to 0 for ({s1.id}, {s2.id}) "
+                                                "- skipping...")
+
                 # Add vertex to Scanner 0:
                 scanners[0].beacons.add(vlabel)
-            # Process new vertices:
-            scanners[0]._build_graph()
-            # Show:
-            print(f'Scanner 0 now has {scanners[0].graph.vertex_count()} vertices')
-            ### pprint(tuple(scanners[0].graph.vertices()))
-        else:
-            print(f'Scanner {s1.id} and/or Scanner {s2.id} have less then {MIN_SHARED_VERTICES} '
-                   'vertices in common - skipping...')
+
+        except LookupError as e:
+            print(e)
+            continue
+
+        # Process new vertices:
+        scanners[0]._build_graph()
+
+        # Show:
+        print(f'Scanner 0 now has {scanners[0].graph.vertex_count()} vertices')
+        ### pprint(tuple(scanners[0].graph.vertices()))
+
+        # Track processed scanners
+        complete.add(keys)
+        k1, k2 = keys
+        complete.add((k2, k1))
 
 
 if __name__ == '__main__':
