@@ -1,7 +1,7 @@
 #! /usr/bin/env python3.10
 
-INFILE = 'd19p1t1.txt'
-# INFILE = 'd19p1.txt'
+# INFILE = 'd19p1t1.txt'
+INFILE = 'd19p1.txt'
 
 
 # Libraries
@@ -334,13 +334,6 @@ def main():
     # Find matching vertices in pairs of scanners
     same_verts = {k: [] for k in permutations(scanners, 2)}
     scanner_offsets = {}
-    path_to_s0 = {}
-    '''
-    Next Steps:
-    * Then iterate through collection above for each pair trying forward and reverse
-      if necessary
-    * Clean up so modular and minimize repetition
-    '''
     for key, value in same_verts.items():
         s1, s2 = key
         s1_vertices, s2_vertices, edges = cmp_vertices(s1, s2)
@@ -398,17 +391,17 @@ def main():
                 first = s1.id
                 while first != 0:
                     if (0, first) in scanner_offsets:
-                        s1a, _, transform, offset = scanner_offsets[(0, first)]
-                        first = s1a.id
-                        vlabel = vert_rotate(vlabel, transform, offset)
+                        s1_a, _, transform_a, offset_a = scanner_offsets[(0, first)]
+                        first = s1_a.id
+                        vlabel = vert_rotate(vlabel, transform_a, offset_a)
                     else:
                         found = False
                         for i in range(1, first):
                             if (i, first) in scanner_offsets:
                                 found = True
-                                s1a, _, transform, offset = scanner_offsets[(i, first)]
-                                first = s1a.id
-                                vlabel = vert_rotate(vlabel, transform, offset)
+                                s1_a, _, transform_a, offset_a = scanner_offsets[(i, first)]
+                                first = s1_a.id
+                                vlabel = vert_rotate(vlabel, transform_a, offset_a)
                                 break
 
                         if not found:
@@ -433,6 +426,10 @@ def main():
         complete.add(keys)
         k1, k2 = keys
         complete.add((k2, k1))
+
+    # Processed:
+    print(f'\nProcessed:')
+    pprint(complete)
 
 
 if __name__ == '__main__':
