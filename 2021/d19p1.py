@@ -298,7 +298,7 @@ XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   * Then:  (2, 1, 3) => valid x, means we now have (*, 1, -2)
   * Finally:  (-3, -2, -1) => valid z, means we now have (-3, 1, -2)
 '''
-def main():
+def main(verbose=False):
     scanners = []
     with open(INFILE) as infile:
         current_beacons = []
@@ -342,11 +342,12 @@ def main():
 
         if min(len(s1_vertices), len(s2_vertices)) >= MIN_SHARED_VERTICES:
             s1_verts_equiv = get_equiv_vertices(s1_vertices, s2_vertices, edges)
-            print(f'\nScanner {s1.id} and scanner {s2.id} have {len(s2_vertices)} '
-                  'overlapping vertices.')
-            if s1.id < s2.id:
-                print('Left scanner vertices and corresponding right scanner vertices:')
-                pprint(s1_verts_equiv)
+            if verbose:
+                print(f'\nScanner {s1.id} and scanner {s2.id} have {len(s2_vertices)} '
+                    'overlapping vertices.')
+                if s1.id < s2.id:
+                    print('Left scanner vertices and corresponding right scanner vertices:')
+                    pprint(s1_verts_equiv)
 
             scanner_offset = [None, None, None]
             for transform in permutations((1, 2, 3)):
@@ -360,21 +361,34 @@ def main():
 
             # Don't assume current result is OK - could have found offsets piecemeal:
             s1_vert_offsets = get_vert_offsets(s1_verts_equiv, scanner_offset)
-            print(f'Found scanner offset ({scanner_offset}):  {s1_vert_offsets[0]}')
+            if verbose:
+                print(f'Found scanner offset ({scanner_offset}):  {s1_vert_offsets[0]}')
 
             # Store (s1.id, s2.id), transform, scanner_offset
             scanner_offsets[(s1.id, s2.id)] = (s1, s2, scanner_offset, s1_vert_offsets[0])
-        else:
+        elif verbose:
             print(f'\nScanner {s1.id} and/or Scanner {s2.id} have less then {MIN_SHARED_VERTICES} '
-                   'vertices in common - skipping...')
+                  'vertices in common - skipping...')
+
+    # Display results
+    print('Found:')
+    ### Temp???:
+    vertices = []
+    for values in scanner_offsets.values():
+        s1, s2, transform, offset = values
+        print(f'{s1.id} => {s2.id}, Transform: {transform}, Offset: {offset}')
+        ### Temp???:
+        vertices.append((s1.id, s2.id))
 
     complete = set()
     for keys, values in scanner_offsets.items():
         s1, s2, transform, offset = values
-        print(f'Processing Scanners {s1.id}, {s2.id}...')
+        if verbose:
+            print(f'Processing Scanners {s1.id}, {s2.id}...')
 
         if keys in complete:
-            print('Already completed - skipping...')
+            if verbose:
+                print('Already completed - skipping...')
             continue
 
         ### print(f'Scanners {s1.id}, {s2.id}:  {transform=}, {offset=}')
@@ -412,14 +426,16 @@ def main():
                 scanners[0].beacons.add(vlabel)
 
         except LookupError as e:
-            print(e)
+            if verbose:
+                print(e)
             continue
 
         # Process new vertices:
         scanners[0]._build_graph()
 
         # Show:
-        print(f'Scanner 0 now has {scanners[0].graph.vertex_count()} vertices')
+        if verbose:
+            print(f'Scanner 0 now has {scanners[0].graph.vertex_count()} vertices')
         ### pprint(tuple(scanners[0].graph.vertices()))
 
         # Track processed scanners
@@ -430,6 +446,9 @@ def main():
     # Processed:
     print(f'\nProcessed:')
     pprint(complete)
+
+    ### Temp:
+    return vertices
 
 
 if __name__ == '__main__':
