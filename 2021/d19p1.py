@@ -378,8 +378,40 @@ def main(verbose=False):
         s1, s2, transform, offset = values
         print(f'{s1.id} => {s2.id}, Transform: {transform}, Offset: {offset}')
         ### Temp???:
-        vertices.append((s1.id, s2.id))
+        if s1.id < s2.id:
+            vertices.append((s1.id, s2.id))
 
+    # Build graph of overlapping scanners (12 overlapping vertices)
+    overlap_scanners = Graph()
+    for verts in vertices:
+        v1, v2 = verts
+        if (vertex1 := overlap_scanners.get_vertex(v1)) is None:
+            vertex1 = overlap_scanners.insert_vertex(v1)
+        if (vertex2 := overlap_scanners.get_vertex(v2)) is None:
+            vertex2 = overlap_scanners.insert_vertex(v2)
+        if not overlap_scanners.get_edge(vertex1, vertex2):
+            overlap_scanners.insert_edge(vertex1, vertex2, 1)
+
+    root_vertex = overlap_scanners.get_vertex(0)
+    # Believe I want a minimum spanning tree, so I have an actual path from
+    # s0 to each other scanner with overlapping vertices
+    ...
+    print('\nOptimal distance tree:')
+
+    '''
+    discovered = dfs(overlap_scanners, root_vertex)
+    print('\nDFS from Scanner 0:')
+    pprint(discovered)
+
+    print('\nPaths:')
+    for i in range(1, len(scanners)):
+        target_vertex = overlap_scanners.get_vertex(i)
+        path = get_path(root_vertex, target_vertex, discovered)
+        print(f'Path from scanner 0 to scanner {i}:\n  {path}')
+    '''
+
+    '''
+    # Wrong approach - use a graph...
     complete = set()
     for keys, values in scanner_offsets.items():
         s1, s2, transform, offset = values
@@ -446,6 +478,7 @@ def main(verbose=False):
     # Processed:
     print(f'\nProcessed:')
     pprint(complete)
+    '''
 
     ### Temp:
     return vertices
