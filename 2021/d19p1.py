@@ -14,6 +14,8 @@ import re
 
 # Local
 from graph import Graph
+from mst import MST_PrimJarnik as mstpj
+from shortest_paths import shortest_path_lengths, shortest_path_tree
 
 
 # Globals:
@@ -392,11 +394,22 @@ def main(verbose=False):
         if not overlap_scanners.get_edge(vertex1, vertex2):
             overlap_scanners.insert_edge(vertex1, vertex2, 1)
 
+    # Believe I want a tree, so I have an actual path from s0 to each other
+    # scanner with overlapping vertices - not sure if SPF or MST better...
+    # SPF approach:
     root_vertex = overlap_scanners.get_vertex(0)
-    # Believe I want a minimum spanning tree, so I have an actual path from
-    # s0 to each other scanner with overlapping vertices
-    ...
-    print('\nOptimal distance tree:')
+    splens = shortest_path_lengths(overlap_scanners, root_vertex)
+    sptree = shortest_path_tree(overlap_scanners, root_vertex, splens)
+    print('\nShortest path tree:')
+    pprint(sptree)
+
+    # MST approach
+    mst_tree = mstpj(overlap_scanners)
+    print('\nMinimum spanning tree:')
+    pprint(mst_tree)
+
+    ### Next step - build a graph from each, draw graph, compare - decide
+    ### which one to use.  May be similar...
 
     '''
     discovered = dfs(overlap_scanners, root_vertex)
