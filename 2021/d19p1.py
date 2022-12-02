@@ -394,6 +394,9 @@ def main(verbose=False):
         if not overlap_scanners.get_edge(vertex1, vertex2):
             overlap_scanners.insert_edge(vertex1, vertex2, 1)
 
+    ### Temp:
+    # return overlap_scanners
+
     # Believe I want a tree, so I have an actual path from s0 to each other
     # scanner with overlapping vertices - not sure if SPF or MST better...
     # SPF approach:
@@ -494,7 +497,7 @@ def main(verbose=False):
     '''
 
     ### Temp:
-    return vertices
+    # return vertices
 
 
 if __name__ == '__main__':
