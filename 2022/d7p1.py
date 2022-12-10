@@ -19,28 +19,38 @@ No space left on device
 
 # INFILE = 'd7p1t1.txt'
 # INFILE = r'\working\github\sockduct\aoc\2022\d7p1t1.txt'
+# INFILE = r'\working\github\sockduct\aoc\2022\d7p1.txt'
 INFILE = 'd7p1.txt'
 MAX_DIR_SIZE = 100_000
+MIN_REQ_SPACE = 30_000_000
+TOTAL_DISK_SPACE = 70_000_000
 
 
 import json
 
 
 def directory_sizes(tree, directories=None, cwd=None):
+    '''
+    Add a depth component to deal with directories at different depths with the
+    same name
+    '''
     if not directories:
         directories = {}
     if not cwd:
         cwd = []
     for key, value in tree.items():
         if isinstance(value, dict):
-            directories[key] = 0
             cwd.append(key)
+            dirent = f'{key}_{len(cwd)}'
+            directories[dirent] = 0
             directory_sizes(tree[key], directories, cwd)
             cwd.pop()
             if cwd:
-                directories[cwd[-1]] += directories[key]
+                dirent_parent = f'{cwd[-1]}_{len(cwd)}'
+                directories[dirent_parent] += directories[dirent]
         elif isinstance(value, int):
-            directories[cwd[-1]] += value
+            dirent_parent = f'{cwd[-1]}_{len(cwd)}'
+            directories[dirent_parent] += value
         else:
             raise ValueError(f'Key {key} contains unexpected value {value}.')
 
@@ -116,21 +126,37 @@ def main():
         index += 1
 
     # Find total (recursive) size of each directory:
-    result = directory_sizes(tree)
+    dir_sizes = directory_sizes(tree)
 
     # Discard all directories with size > MAX_DIR_SIZE:
-    filtered = dict(filter(lambda item: item[1] <= MAX_DIR_SIZE, result.items()))
+    filtered_dirs = dict(filter(lambda item: item[1] <= MAX_DIR_SIZE, dir_sizes.items()))
+
+    # Part 2 - Find directory that will free up at least MIN_REQ_SPACE
+    # * Available space = MAX_DIR_SIZE - size of '/'
+    avail_space = TOTAL_DISK_SPACE - dir_sizes['/_1']
+
+    # * Required space = MIN_REQ_SPACE - Available space
+    req_space = MIN_REQ_SPACE - avail_space
+
+    # * Find smallest directory >= Required space
+    sorted_dirs = dict(sorted(dir_sizes.items(), key=lambda item: item[1]))
+    match_dirs = {key: value for key, value in sorted_dirs.items() if value >= req_space}
+    smallest_match = list(match_dirs.items())[0]
 
     # Calculate sum of sizes of remaining directories:
-    total = sum(filtered.values())
+    total = sum(filtered_dirs.values())
 
-    print(f'\nTotal space for directories smaller than {MAX_DIR_SIZE:,}:  {total:,}\n')
+    print(f'\nPart 1 - Total space for directories smaller than {MAX_DIR_SIZE:,}:  {total:,}')
+    print(f'Part 2 - Size of smallest directory freeing up enough space:  {smallest_match[1]:,} '
+          f'({smallest_match[0]})\n')
 
     # Debugging
-    print(f'Directories and their total size:\n{json.dumps(result, indent=4, sort_keys=True)}')
-    print(f'\nDirectories <= {MAX_DIR_SIZE:,}:\n{json.dumps(filtered, indent=4, sort_keys=True)}')
+    '''
+    print(f'Directories and their total size:\n{json.dumps(dir_sizes, indent=4, sort_keys=True)}')
+    print(f'\nDirectories <= {MAX_DIR_SIZE:,}:\n{json.dumps(filtered_dirs, indent=4, sort_keys=True)}')
     print(f'\nDirectory structure:\n{json.dumps(tree, indent=4, sort_keys=True)}')
-    return tree, result, filtered
+    return tree, dir_sizes, filtered_dirs
+    '''
 
 
 if __name__ == '__main__':
