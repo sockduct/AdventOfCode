@@ -18,21 +18,33 @@ No space left on device
 
 
 # INFILE = 'd7p1t1.txt'
-INFILE = r'\working\github\sockduct\aoc\2022\d7p1t1.txt'
-# INFILE = 'd7p1.txt'
+# INFILE = r'\working\github\sockduct\aoc\2022\d7p1t1.txt'
+INFILE = 'd7p1.txt'
 MAX_DIR_SIZE = 100_000
 
 
-from pprint import pprint
+import json
 
 
-class File:
-    def __init__(self, name, size):
-        self.name = name
-        self.size = size
+def directory_sizes(tree, directories=None, cwd=None):
+    if not directories:
+        directories = {}
+    if not cwd:
+        cwd = []
+    for key, value in tree.items():
+        if isinstance(value, dict):
+            directories[key] = 0
+            cwd.append(key)
+            directory_sizes(tree[key], directories, cwd)
+            cwd.pop()
+            if cwd:
+                directories[cwd[-1]] += directories[key]
+        elif isinstance(value, int):
+            directories[cwd[-1]] += value
+        else:
+            raise ValueError(f'Key {key} contains unexpected value {value}.')
 
-    def __repr__(self):
-        return f'<File({self.name}, size={self.size:,})>'
+    return directories
 
 
 def get_directory(tree, cwd):
@@ -104,16 +116,21 @@ def main():
         index += 1
 
     # Find total (recursive) size of each directory:
-    # Find all directories first???
-    ...
+    result = directory_sizes(tree)
 
     # Discard all directories with size > MAX_DIR_SIZE:
-    ...
+    filtered = dict(filter(lambda item: item[1] <= MAX_DIR_SIZE, result.items()))
 
     # Calculate sum of sizes of remaining directories:
-    ...
+    total = sum(filtered.values())
 
-    pprint(tree)
+    print(f'\nTotal space for directories smaller than {MAX_DIR_SIZE:,}:  {total:,}\n')
+
+    # Debugging
+    print(f'Directories and their total size:\n{json.dumps(result, indent=4, sort_keys=True)}')
+    print(f'\nDirectories <= {MAX_DIR_SIZE:,}:\n{json.dumps(filtered, indent=4, sort_keys=True)}')
+    print(f'\nDirectory structure:\n{json.dumps(tree, indent=4, sort_keys=True)}')
+    return tree, result, filtered
 
 
 if __name__ == '__main__':
