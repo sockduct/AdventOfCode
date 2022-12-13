@@ -22,8 +22,12 @@ Input - Part 1, Details:
 '''
 
 
-INFILE = 'd9p1t1.txt'
-# INFILE = 'd9p1.txt'
+# INFILE = 'd9p1t2.txt'
+INFILE = 'd9p1.txt'
+# INFILE = r'\working\github\sockduct\aoc\2022\d9p1.txt'
+
+
+from math import sqrt
 
 
 class Position:
@@ -35,10 +39,10 @@ class Position:
         return hash((self.x, self.y))
 
     def __eq__(self, other):
-        if not isinstance(other, Position):
-            return NotImplemented
-
-        return self.x == other.x and self.y == other.y
+        return (
+            self.x == other.x and self.y == other.y if isinstance(other, Position)
+                else NotImplemented
+        )
 
     def __repr__(self):
         return f'<Position({self.x, self.y})>'
@@ -46,18 +50,70 @@ class Position:
     def __str__(self):
         return f'{self.x, self.y}'
 
+    def distance(self, other):
+        return (
+            sqrt((other.x - self.x) ** 2 + (other.y - self.y) ** 2) if isinstance(other, Position)
+                else NotImplemented
+        )
+
+
 
 def move_pos(coord, inc, dist, head, tail, head_visited, tail_visited):
     for _ in range(dist):
-        # Debug
-        print(f'Head at {head}')
-
         value = getattr(head, coord) + inc
         setattr(head, coord, value)
         head_visited.add(head)
+        # Debug
+        print(f'Head moved to {head}, ', end='')
 
         # Check if tail needs to move
-        ...
+        if head.distance(tail) >= 2.0:
+            hdist = head.x - tail.x
+            vdist = head.y - tail.y
+
+            match hdist, vdist:
+                case 2, -1:
+                    tail.x += 1
+                    tail.y -= 1
+                case 2, 0:
+                    tail.x += 1
+                case 2, 1:
+                    tail.x += 1
+                    tail.y += 1
+                case -2, -1:
+                    tail.x -= 1
+                    tail.y -= 1
+                case -2, 0:
+                    tail.x -= 1
+                case -2, 1:
+                    tail.x -= 1
+                    tail.y += 1
+                case -1, 2:
+                    tail.y += 1
+                    tail.x -= 1
+                case 0, 2:
+                    tail.y += 1
+                case 1, 2:
+                    tail.y += 1
+                    tail.x += 1
+                case -1, -2:
+                    tail.y -= 1
+                    tail.x -= 1
+                case 0, -2:
+                    tail.y -= 1
+                case 1, -2:
+                    tail.y -= 1
+                    tail.x += 1
+                case _:
+                    raise ValueError(f'Unexpected distance:  {hdist=}, {vdist=}, {head=}, {tail=}.')
+
+            # Debug
+            print(f'Tail moved to {tail}.')
+
+            tail_visited.add(tail)
+        else:
+            # Debug
+            print(f'Tail didn\'t move. (Distance={head.distance(tail):.2f})')
 
 
 def run_cmd(cmd, dist, head, tail, head_visited, tail_visited):
@@ -81,6 +137,10 @@ def main():
         tail_visited = {tail}
         head_visited = {head}
         commands = 0
+
+        # Debug
+        print(f'Start:  Head at {head}, Tail at {tail}')
+
         for line in infile:
             cmd, dist = line.split()
 
@@ -88,7 +148,7 @@ def main():
             commands += 1
 
     # Debug
-    print(f'Head ended at {head}')
+    print(f'End:  Head at {head}, tail at {tail}')
     print(f'\nHead visited {len(head_visited):,} positions.')
     print(f'Processed {commands:,} commands.')
 
