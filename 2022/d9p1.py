@@ -22,40 +22,59 @@ Input - Part 1, Details:
 '''
 
 
+# INFILE = 'd9p1t1.txt'
+INFILE = r'\working\github\sockduct\aoc\2022\d9p1t1.txt'
 # INFILE = 'd9p1t2.txt'
-INFILE = 'd9p1.txt'
+# INFILE = 'd9p1.txt'
 # INFILE = r'\working\github\sockduct\aoc\2022\d9p1.txt'
 
 
+from dataclasses import dataclass
 from math import sqrt
 
 
+# Treat Position as immutable to allow use in sets
+@dataclass(unsafe_hash=True)
 class Position:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-
-    def __hash__(self):
-        return hash((self.x, self.y))
-
-    def __eq__(self, other):
-        return (
-            self.x == other.x and self.y == other.y if isinstance(other, Position)
-                else NotImplemented
-        )
-
-    def __repr__(self):
-        return f'<Position({self.x, self.y})>'
+    x: int
+    y: int
 
     def __str__(self):
-        return f'{self.x, self.y}'
+        return f'({self.x}, {self.y})'
 
     def distance(self, other):
+        '''
+        Use Chebyshev Distance instead of Euclidean Distance
+        See:
+        * https://chris3606.github.io/GoRogue/articles/grid_components/measuring-distance.html
+        * https://www.omnicalculator.com/math/manhattan-distance
+
+        Euclidean Distance:
+        sqrt((other.x - self.x) ** 2 + (other.y - self.y) ** 2)
+        '''
         return (
-            sqrt((other.x - self.x) ** 2 + (other.y - self.y) ** 2) if isinstance(other, Position)
+            max(abs(other.x - self.x), abs(other.y - self.y)) if isinstance(other, Position)
                 else NotImplemented
         )
 
+
+def display_grid(head, tail):
+    output = [
+        ['4', ' ', ' ', ' ', ' ', ' ', ' \n'],
+        ['3', ' ', ' ', ' ', ' ', ' ', ' \n'],
+        ['2', ' ', ' ', ' ', ' ', ' ', ' \n'],
+        ['1', ' ', ' ', ' ', ' ', ' ', ' \n'],
+        ['0', ' ', ' ', ' ', ' ', ' ', ' \n'],
+        [' 012345\n']
+    ]
+
+    # Tail:
+    output[4 - tail.y][tail.x + 1] = 'T'
+
+    # Head:
+    output[4 - head.y][head.x + 1] = 'H'
+
+    print(f'{"".join(col for row in output for col in row)}')
 
 
 def move_pos(coord, inc, dist, head, tail, head_visited, tail_visited):
@@ -67,11 +86,13 @@ def move_pos(coord, inc, dist, head, tail, head_visited, tail_visited):
         print(f'Head moved to {head}, ', end='')
 
         # Check if tail needs to move
-        if head.distance(tail) >= 2.0:
+        if head.distance(tail) > 1:
             hdist = head.x - tail.x
             vdist = head.y - tail.y
 
             match hdist, vdist:
+                # Could combine diagonals
+                # e.g., could add:  | 1, -2:
                 case 2, -1:
                     tail.x += 1
                     tail.y -= 1
@@ -113,7 +134,9 @@ def move_pos(coord, inc, dist, head, tail, head_visited, tail_visited):
             tail_visited.add(tail)
         else:
             # Debug
-            print(f'Tail didn\'t move. (Distance={head.distance(tail):.2f})')
+            print(f'Tail didn\'t move. (Distance={head.distance(tail)})')
+
+        display_grid(head, tail)
 
 
 def run_cmd(cmd, dist, head, tail, head_visited, tail_visited):
@@ -140,6 +163,7 @@ def main():
 
         # Debug
         print(f'Start:  Head at {head}, Tail at {tail}')
+        display_grid(head, tail)
 
         for line in infile:
             cmd, dist = line.split()
