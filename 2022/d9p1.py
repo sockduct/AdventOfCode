@@ -25,10 +25,10 @@ Input - Part 1, Details:
 # INFILE = 'd9p1t1.txt'
 # INFILE = r'\working\github\sockduct\aoc\2022\d9p1t1.txt'
 # INFILE = 'd9p1t2.txt'
-# INFILE = 'd9p1t2.txt'
-INFILE = r'\working\github\sockduct\aoc\2022\d9p1t2.txt'
+# INFILE = 'd9p2t2.txt'
+# INFILE = r'\working\github\sockduct\aoc\2022\d9p1t2.txt'
 # INFILE = 'd9p1.txt'
-# INFILE = r'\working\github\sockduct\aoc\2022\d9p1.txt'
+INFILE = r'\working\github\sockduct\aoc\2022\d9p1.txt'
 
 
 from dataclasses import dataclass
@@ -138,7 +138,7 @@ def move_pos(coord, inc, dist, rope, rope_tail_visited, verbose=False):
 
                 match hdist, vdist:
                     # Move diagonally (right, down)
-                    case (2, -1) | (1, -2):
+                    case (2, -1) | (1, -2) | (2, -2):
                         rope[trail] = Position(rope[trail].x + 1, rope[trail].y - 1)
                     # Move right
                     case 2, 0:
@@ -147,7 +147,7 @@ def move_pos(coord, inc, dist, rope, rope_tail_visited, verbose=False):
                     case (2, 1) | (1, 2) | (2, 2):
                         rope[trail] = Position(rope[trail].x + 1, rope[trail].y + 1)
                     # Move diagonally (left, down)
-                    case (-2, -1) | (-1, -2):
+                    case (-2, -1) | (-1, -2) | (-2, -2):
                         rope[trail] = Position(rope[trail].x - 1, rope[trail].y - 1)
                     # Move left
                     case -2, 0:
@@ -210,7 +210,7 @@ def main(verbose=False):
         for line in infile:
             cmd, dist = line.split()
 
-            # run_cmd(cmd, int(dist), rope, rope_tail_visited, verbose)
+            run_cmd(cmd, int(dist), rope, rope_tail_visited, verbose)
             run_cmd(cmd, int(dist), rope2, rope2_tail_visited, verbose)
             commands += 1
 
@@ -223,4 +223,4 @@ def main(verbose=False):
 
 
 if __name__ == '__main__':
-    main(verbose=True)
+    main(verbose=False)
