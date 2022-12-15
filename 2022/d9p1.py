@@ -23,9 +23,9 @@ Input - Part 1, Details:
 
 
 # INFILE = 'd9p1t1.txt'
-INFILE = r'\working\github\sockduct\aoc\2022\d9p1t1.txt'
+# INFILE = r'\working\github\sockduct\aoc\2022\d9p1t1.txt'
 # INFILE = 'd9p1t2.txt'
-# INFILE = 'd9p1.txt'
+INFILE = 'd9p1.txt'
 # INFILE = r'\working\github\sockduct\aoc\2022\d9p1.txt'
 
 
@@ -33,8 +33,7 @@ from dataclasses import dataclass
 from math import sqrt
 
 
-# Treat Position as immutable to allow use in sets
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True)
 class Position:
     x: int
     y: int
@@ -60,124 +59,132 @@ class Position:
 
 def display_grid(head, tail):
     output = [
-        ['4', ' ', ' ', ' ', ' ', ' ', ' \n'],
-        ['3', ' ', ' ', ' ', ' ', ' ', ' \n'],
-        ['2', ' ', ' ', ' ', ' ', ' ', ' \n'],
-        ['1', ' ', ' ', ' ', ' ', ' ', ' \n'],
-        ['0', ' ', ' ', ' ', ' ', ' ', ' \n'],
+        ['5', '.', '.', '.', '.', '.', '.', '\n'],
+        ['4', '.', '.', '.', '.', '.', '.', '\n'],
+        ['3', '.', '.', '.', '.', '.', '.', '\n'],
+        ['2', '.', '.', '.', '.', '.', '.', '\n'],
+        ['1', '.', '.', '.', '.', '.', '.', '\n'],
+        ['0', '.', '.', '.', '.', '.', '.', '\n'],
         [' 012345\n']
     ]
 
     # Tail:
-    output[4 - tail.y][tail.x + 1] = 'T'
+    output[5 - tail.y][tail.x + 1] = 'T'
 
     # Head:
-    output[4 - head.y][head.x + 1] = 'H'
+    output[5 - head.y][head.x + 1] = 'H'
 
     print(f'{"".join(col for row in output for col in row)}')
 
 
-def move_pos(coord, inc, dist, head, tail, head_visited, tail_visited):
+def move_pos(coord, inc, dist, rope, verbose=False):
     for _ in range(dist):
-        value = getattr(head, coord) + inc
-        setattr(head, coord, value)
-        head_visited.add(head)
-        # Debug
-        print(f'Head moved to {head}, ', end='')
+        match coord:
+            case 'x':
+                rope['head'] = Position(rope['head'].x + inc, rope['head'].y)
+            case 'y':
+                rope['head'] = Position(rope['head'].x, rope['head'].y + inc)
+            case _:
+                raise ValueError(f'Expected "x" or "y", got "{coord}".')
+
+        rope['head_visited'].add(rope['head'])
+        if verbose:
+            print(f'Head moved to {rope["head"]}, ', end='')
 
         # Check if tail needs to move
-        if head.distance(tail) > 1:
-            hdist = head.x - tail.x
-            vdist = head.y - tail.y
+        if rope['head'].distance(rope['tail']) > 1:
+            hdist = rope['head'].x - rope['tail'].x
+            vdist = rope['head'].y - rope['tail'].y
 
             match hdist, vdist:
-                # Could combine diagonals
-                # e.g., could add:  | 1, -2:
-                case 2, -1:
-                    tail.x += 1
-                    tail.y -= 1
+                # Move diagonally (right, down)
+                case (2, -1) | (1, -2):
+                    rope['tail'] = Position(rope['tail'].x + 1, rope['tail'].y - 1)
+                # Move right
                 case 2, 0:
-                    tail.x += 1
-                case 2, 1:
-                    tail.x += 1
-                    tail.y += 1
-                case -2, -1:
-                    tail.x -= 1
-                    tail.y -= 1
+                    rope['tail'] = Position(rope['tail'].x + 1, rope['tail'].y)
+                # Move diagonally (right, up)
+                case (2, 1) | (1, 2):
+                    rope['tail'] = Position(rope['tail'].x + 1, rope['tail'].y + 1)
+                # Move diagonally (left, down)
+                case (-2, -1) | (-1, -2):
+                    rope['tail'] = Position(rope['tail'].x - 1, rope['tail'].y - 1)
+                # Move left
                 case -2, 0:
-                    tail.x -= 1
-                case -2, 1:
-                    tail.x -= 1
-                    tail.y += 1
-                case -1, 2:
-                    tail.y += 1
-                    tail.x -= 1
+                    rope['tail'] = Position(rope['tail'].x - 1, rope['tail'].y)
+                # Move diagonally (left, up)
+                case (-2, 1) | (-1, 2):
+                    rope['tail'] = Position(rope['tail'].x - 1, rope['tail'].y + 1)
+                # Move up
                 case 0, 2:
-                    tail.y += 1
-                case 1, 2:
-                    tail.y += 1
-                    tail.x += 1
-                case -1, -2:
-                    tail.y -= 1
-                    tail.x -= 1
+                    rope['tail'] = Position(rope['tail'].x, rope['tail'].y + 1)
+                # Move down
                 case 0, -2:
-                    tail.y -= 1
-                case 1, -2:
-                    tail.y -= 1
-                    tail.x += 1
+                    rope['tail'] = Position(rope['tail'].x, rope['tail'].y - 1)
                 case _:
-                    raise ValueError(f'Unexpected distance:  {hdist=}, {vdist=}, {head=}, {tail=}.')
+                    raise ValueError(f"Unexpected distance:  {hdist=}, {vdist=}, "
+                                     f"{rope['head']=}, {rope['tail']=}.")
 
-            # Debug
-            print(f'Tail moved to {tail}.')
+            if verbose:
+                print(f"Tail moved to {rope['tail']}.")
 
-            tail_visited.add(tail)
-        else:
-            # Debug
-            print(f'Tail didn\'t move. (Distance={head.distance(tail)})')
+            rope['tail_visited'].add(rope['tail'])
+        elif verbose:
+            print(f"Tail didn't move. (Distance={rope['head'].distance(rope['tail'])})")
 
-        display_grid(head, tail)
+        if verbose:
+            display_grid(rope['head'], rope['tail'])
 
 
-def run_cmd(cmd, dist, head, tail, head_visited, tail_visited):
+def run_cmd(cmd, dist, rope, verbose=False):
     match cmd:
         case 'U' | 'u':
-            move_pos('y', 1, dist, head, tail, head_visited, tail_visited)
+            move_pos('y', 1, dist, rope, verbose)
         case 'D' | 'd':
-            move_pos('y', -1, dist, head, tail, head_visited, tail_visited)
+            move_pos('y', -1, dist, rope, verbose)
         case 'L' | 'l':
-            move_pos('x', -1, dist, head, tail, head_visited, tail_visited)
+            move_pos('x', -1, dist, rope, verbose)
         case 'R' | 'r':
-            move_pos('x', 1, dist, head, tail, head_visited, tail_visited)
+            move_pos('x', 1, dist, rope, verbose)
         case _:
             raise ValueError(f'Expected U|D|L|R, got:  {cmd}')
 
 
-def main():
+def main(verbose=False):
     with open(INFILE) as infile:
-        head = Position(0, 0)
-        tail = Position(0, 0)
-        tail_visited = {tail}
-        head_visited = {head}
+        rope = dict(head=Position(0, 0), tail=Position(0, 0))
+        rope['head_visited'] = {rope['head']}
+        rope['tail_visited'] = {rope['tail']}
+
+        '''
+        rope2 = {key: Position(0, 0) for key in ('head', 1, 2, 3, 4, 5, 6, 7, 8, 'tail')}
+        rope2['head_visited'] = {rope['head']}
+        rope2['tail_visited'] = {rope['tail']}
+        '''
+
         commands = 0
 
-        # Debug
-        print(f'Start:  Head at {head}, Tail at {tail}')
-        display_grid(head, tail)
+        print(f"Start:  Head at {rope['head']}, Tail at {rope['tail']}")
+        # print(f'Start for rope2:  {", ".join(f"{key}={value}" for key, value in rope2.items())}')
+        if verbose:
+            display_grid(rope['head'], rope['tail'])
 
         for line in infile:
             cmd, dist = line.split()
 
-            run_cmd(cmd, int(dist), head, tail, head_visited, tail_visited)
+            run_cmd(cmd, int(dist), rope, verbose)
+            # run_cmd(cmd, int(dist), rope2, verbose)
             commands += 1
 
-    # Debug
-    print(f'End:  Head at {head}, tail at {tail}')
-    print(f'\nHead visited {len(head_visited):,} positions.')
-    print(f'Processed {commands:,} commands.')
+    print(f"End:  Head at {rope['head']}, tail at {rope['tail']}")
+    # print(f'End for rope2:  {", ".join(f"{key}={value}" for key, value in rope2.items())}')
+    print(f"\nHead visited {len(rope['head_visited']):,} positions.")
+    # print(f"Rope2 head visited {len(rope2['head_visited']):,} positions.")
+    print(f"Processed {commands:,} commands.")
 
-    print(f'\nThe tail of the rope visited {len(tail_visited):,} positions.\n')
+    print(f"\nThe tail of the rope visited {len(rope['tail_visited']):,} positions.")
+    # print(f"The tail of the rope2 visited {len(rope2['tail_visited']):,} positions.\n")
 
 
 if __name__ == '__main__':
-    main()
+    main(verbose=False)
