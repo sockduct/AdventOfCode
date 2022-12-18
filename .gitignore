@@ -20,3 +20,7 @@ out*.txt
 
 # Not checking in output files for 2022:
 2022/*.txt
+
+# Data Structures directory files tracked in another repository - ignore:
+ds/
+
