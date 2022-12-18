@@ -27,6 +27,7 @@ Part 1 Input:
 INFILE = 'd11p1.txt'
 
 
+# Standard Library
 from collections.abc import Callable
 from dataclasses import dataclass
 from math import prod
@@ -47,8 +48,44 @@ class Monkey:
         return self.opact(value, value) if self.opval == -2 else self.opact(value, self.opval)
 
 
-def main(verbose=True):
+def round(rnum, monkeys, worryreduce, verbose=False):
+    if verbose:
+        print(f'Round {rnum}:')
+
+    for mnum, monkey in monkeys.items():
+        if verbose:
+            print(f'  Monkey {mnum}:')
+        items = monkey.items
+        monkey.items = []
+        for item in items:
+            monkey.inspections += 1
+            if verbose:
+                print(f'    Monkey {mnum} inspects item with worry level of {item}.')
+            worrylevel = monkey.calc(item)
+            if verbose:
+                verb = 'multiplied' if monkey.opact is mul else 'increased'
+                value = 'itself' if monkey.opval == -2 else str(monkey.opval)
+                print(f'      Worry level is {verb} by {value} to {worrylevel}.')
+            if worryreduce['worrydiv'] > 1:
+                worrylevel //= worryreduce['worrydiv']
+            else:
+                worrylevel %= worryreduce['worrymod']
+            if verbose:
+                print(f'      Monkey gets bored with item.  Worry level is divided by {worrydiv} '
+                      f'to {worrylevel}.')
+            next_monkey = (monkey.testtrue if worrylevel and worrylevel % monkey.testval == 0
+                            else monkey.testfalse)
+            if verbose:
+                verb = 'is' if next_monkey == monkey.testtrue else 'is not'
+                print(f'      Current worry level {verb} divisible by {monkey.testval}.')
+            monkeys[next_monkey].items.append(worrylevel)
+            if verbose:
+                print(f'      Item with worry level {worrylevel} is thrown to monkey {next_monkey}.')
+
+
+def main(verbose=False):
     monkeys = {}
+    testvals = set()
     with open(INFILE) as infile:
         monkeynum = -1
         monkeyattr = dict(items=[], opact=None, opval=0, testval=0, testtrue=-1, testfalse=-1)
@@ -73,6 +110,7 @@ def main(verbose=True):
                         monkeyattr['opval'] = -2
                 case ['Test:', 'divisible', 'by', testval]:
                     monkeyattr['testval'] = int(testval)
+                    testvals.add(int(testval))
                 case ['If', 'true:', 'throw', 'to', 'monkey', testtrue]:
                     monkeyattr['testtrue'] = int(testtrue)
                 case ['If', 'false:', 'throw', 'to', 'monkey', testfalse]:
@@ -87,37 +125,17 @@ def main(verbose=True):
                 case _:
                     raise ValueError(f'Unexpcted line:  {line.strip()}')
 
-    # Debug
-    for value in monkeys.values():
-        print(value)
+    worryreduce = dict(worrydiv=3, worrymod=prod(testvals))
 
-    for round in range(1, 21):
-        print(f'Round {round}:')
-        for mnum, monkey in monkeys.items():
-            print(f'  Monkey {mnum}:')
-            items = monkey.items
-            monkey.items = []
-            for item in items:
-                monkey.inspections += 1
-                if verbose:
-                    print(f'    Monkey {mnum} inspects item with worry level of {item}.')
-                worrylevel = monkey.calc(item)
-                if verbose:
-                    verb = 'multiplied' if monkey.opact is mul else 'increased'
-                    value = 'itself' if monkey.opval == -2 else str(monkey.opval)
-                    print(f'      Worry level is {verb} by {value} to {worrylevel}.')
-                worrylevel //= 3
-                if verbose:
-                    print('      Monkey gets bored with item.  Worry level is divided by 3 to '
-                          f'{worrylevel}.')
-                next_monkey = (monkey.testtrue if worrylevel % monkey.testval == 0
-                               else monkey.testfalse)
-                if verbose:
-                    verb = 'is' if next_monkey == monkey.testtrue else 'is not'
-                    print(f'      Current worry level {verb} divisible by {monkey.testval}.')
-                monkeys[next_monkey].items.append(worrylevel)
-                if verbose:
-                    print(f'      Item with worry level {worrylevel} is throw to monkey {next_monkey}.')
+    # Debug
+    if verbose:
+        for value in monkeys.values():
+            print(value)
+
+    # For part 2:
+    worryreduce['worrydiv'] = 1
+    for rnum in range(1, 10_001):
+        round(rnum, monkeys, worryreduce, verbose)
 
     inspections = []
     print()
