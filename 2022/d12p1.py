@@ -15,21 +15,46 @@ Part 1 Input:
 '''
 
 
+# Standard library:
+from itertools import pairwise
+from pprint import pprint
+import sys
+
+
 # Third party libraries:
 import numpy as np
 
 # Local libraries:
-from ..ds import graph2
+# Ugly hack:
+sys.path.insert(0, '..')
+from ds import graph2
 
 
-INFILE = 'd19p1t1.txt'
-# INFILE = 'd19p1.txt'
+INFILE = 'd12p1t1.txt'
+# INFILE = 'd12p1.txt'
+
+
+def vlink(matrix, row, col):
+    '''Link left, right, up, down vertices'''
+    ...
 
 
 def main():
-    ### Next step - read each line into numpy matrix/ndarray
+    topology = graph2.Graph(directed=True)
+    matrix = []
     with open(INFILE) as infile:
-        ...
+        for row_count, line in enumerate(infile):
+            row = []
+            row.extend(
+                topology.insert_vertex((row_count, col_count, char))
+                    for col_count, char in enumerate(line.strip())
+            )
+            matrix.append(row)
+    pprint(matrix)
+
+    for row in range(len(matrix)):
+        for col in range(len(row)):
+            vlink(matrix)
 
 
 if __name__ == '__main__':
