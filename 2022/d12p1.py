@@ -16,27 +16,59 @@ Part 1 Input:
 
 
 # Standard library:
-from itertools import pairwise
+from itertools import product
 from pprint import pprint
 import sys
 
 
-# Third party libraries:
-import numpy as np
-
+from itertools import product
 # Local libraries:
 # Ugly hack:
-sys.path.insert(0, '..')
+# sys.path.insert(0, '..')
+sys.path.insert(0, r'\working\github\sockduct\aoc')
 from ds import graph2
+from ds import shortest_paths
 
 
-INFILE = 'd12p1t1.txt'
+# INFILE = 'd12p1t1.txt'
+INFILE = r'\working\github\sockduct\aoc\2022\d12p1t1.txt'
 # INFILE = 'd12p1.txt'
 
 
-def vlink(matrix, row, col):
+def getval(char):
+    if char == 'S':
+        return ord('a')
+    elif char == 'E':
+        return ord('z')
+    elif 'a' <= char <= 'z':
+        return ord(char)
+    else:
+        raise ValueError(f'Exepcted a-z|S|E, got {char}.')
+
+
+def vlink(topology, matrix, row, rows, col, cols):
     '''Link left, right, up, down vertices'''
-    ...
+    current = getval(matrix[row][col].label[-1])
+    # Up:
+    if (up := row - 1) > 0:
+        above = getval(matrix[up][col].label[-1])
+        if above - current <= 1:
+            topology.insert_uni_edge(matrix[row][col], matrix[up][col], 1)
+    # Down:
+    if (down := row + 1) < rows:
+        below = getval(matrix[down][col].label[-1])
+        if below - current <= 1:
+            topology.insert_uni_edge(matrix[row][col], matrix[down][col], 1)
+    # Left:
+    if (left := col - 1) > 0:
+        toleft = getval(matrix[row][left].label[-1])
+        if toleft - current <= 1:
+            topology.insert_uni_edge(matrix[row][col], matrix[row][left], 1)
+    # Right:
+    if (right := col + 1) < cols:
+        toright = getval(matrix[row][right].label[-1])
+        if toright - current <= 1:
+            topology.insert_uni_edge(matrix[row][col], matrix[row][right], 1)
 
 
 def main():
@@ -50,11 +82,24 @@ def main():
                     for col_count, char in enumerate(line.strip())
             )
             matrix.append(row)
-    pprint(matrix)
 
-    for row in range(len(matrix)):
-        for col in range(len(row)):
-            vlink(matrix)
+    # Debugging:
+    # pprint(matrix)
+
+    rows = len(matrix)
+    cols = len(matrix[0])
+    for row, col in product(range(rows), range(cols)):
+        if matrix[row][col].label[-1] == 'S':
+            start = matrix[row][col]
+        elif matrix[row][col].label[-1] == 'E':
+            end = matrix[row][col]
+        vlink(topology, matrix, row, rows, col, cols)
+
+    # Debugging:
+    # print(topology)
+
+    distances = shortest_paths.shortest_path_lengths(topology, start)
+    pprint(distances)
 
 
 if __name__ == '__main__':
