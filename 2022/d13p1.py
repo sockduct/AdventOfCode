@@ -15,7 +15,9 @@ INFILE = r'\working\github\sockduct\aoc\2022\d13p1.txt'
 
 
 from collections import deque
+from functools import cmp_to_key
 from itertools import zip_longest
+from pprint import pprint
 
 
 def getnext(deck):
@@ -89,13 +91,16 @@ def compare(left, right):
                     return 1
 
 
-def main():
+def main(verbose=False):
     with open(INFILE) as infile:
         lines = infile.readlines()
 
     num_lines = len(lines)
     count = 0
     inorder_pairs = set()
+    divpkt1 = '[[2]]'
+    divpkt2 = '[[6]]'
+    final_pairs = [divpkt1, divpkt2]
     i = 0
     while i < num_lines:
         line1 = lines[i].strip()
@@ -111,10 +116,25 @@ def main():
         count += 1
 
         # Process line1 and line 2
-        if compare(line1, line2) == -1:
+        if (res := compare(line1, line2)) == -1:
             inorder_pairs.add(count)
+            final_pairs.extend([line1, line2])
+        elif res == 1:
+            final_pairs.extend([line2, line1])
+        else:
+            raise ValueError('Expected lines to be < or >, not equivalent.')
 
-    print(f'\nPart 1 - in order pairs: {inorder_pairs}, sum: {sum(inorder_pairs):,}.\n')
+    final_pairs = sorted(final_pairs, key=cmp_to_key(compare))
+    divpkt1_index = final_pairs.index(divpkt1) + 1
+    divpkt2_index = final_pairs.index(divpkt2) + 1
+    decoder_key = divpkt1_index * divpkt2_index
+
+    if verbose:
+        pprint(final_pairs)
+
+    print(f'\nPart 1 - in order pairs: {inorder_pairs}, sum: {sum(inorder_pairs):,}.')
+    print(f'Part 2 - the decoder key = divider packet 1 index ({divpkt1_index}) * '
+          f'divider packet 2 index ({divpkt2_index}) => {decoder_key:,}\n')
 
 
 if __name__ == '__main__':
