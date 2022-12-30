@@ -12,8 +12,9 @@ Regolith Reservoir
 
 
 # INFILE = 'd14p1t1.txt'
-INFILE = r'\working\github\sockduct\aoc\2022\d14p1t1.txt'
+# INFILE = r'\working\github\sockduct\aoc\2022\d14p1t1.txt'
 # INFILE = 'd14p1.txt'
+INFILE = r'\working\github\sockduct\aoc\2022\d14p1.txt'
 #
 ROCK = '#'
 AIR = '.'
@@ -111,7 +112,7 @@ def display(graph):
     print()
 
 
-def drop_sand(graph, bounds):
+def drop_sand(graph, bounds) -> bool:
     '''
     Sand movement:
     0) Originates from 500, 0
@@ -120,6 +121,9 @@ def drop_sand(graph, bounds):
     3) If can't go diagonally left, tries to go diagonally right
     *) If can't do any of of 1-3, then stops, and next unit starts (step 0)
     '''
+    rowmax = len(graph)
+    colmax = len(graph[0])
+
     # Start 1 below Sand Origin:
     row = bounds['voff'] + 1
     col = bounds['hoff'] + bounds['woff1']
@@ -129,8 +133,14 @@ def drop_sand(graph, bounds):
             # AIR:
             case '.':
                 row += 1
+                # Off the graph?
+                if row >= rowmax:
+                    return False
             # ROCK:
-            case '#':
+            case '#' | 'o':
+                # Off the graph?
+                if (col - 1) < bounds['hoff'] or (col + 1) >= colmax:
+                    return False
                 # Check diagonally left:
                 if graph[row][col - 1] == '.':
                     col -= 1
@@ -140,7 +150,7 @@ def drop_sand(graph, bounds):
                 # Nowhere to go - stop here:
                 else:
                     graph[row - 1][col] = 'o'
-                    break
+                    return True
 
 
 def main(verbose=True):
@@ -180,11 +190,15 @@ def main(verbose=True):
     if verbose:
         display(graph)
 
-    # Next step - iterate through drawing sand, see AoC 2022, Day 14 overview
-    drop_sand(graph, bounds)
+    counter = 0
+    while drop_sand(graph, bounds):
+        counter += 1
+    ### My answer is too low - need to debug
 
     if verbose:
         display(graph)
+
+    print(f'\nDropped units of sand before overflow:  {counter:,}\n')
 
 
 if __name__ == '__main__':
