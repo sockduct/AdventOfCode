@@ -13,8 +13,9 @@ Regolith Reservoir
 
 # INFILE = 'd14p1t1.txt'
 # INFILE = r'\working\github\sockduct\aoc\2022\d14p1t1.txt'
-# INFILE = 'd14p1.txt'
-INFILE = r'\working\github\sockduct\aoc\2022\d14p1.txt'
+# INFILE = r'\working\github\sockduct\aoc\2022\d14p1t2.txt'
+INFILE = 'd14p1.txt'
+# INFILE = r'\working\github\sockduct\aoc\2022\d14p1.txt'
 #
 ROCK = '#'
 AIR = '.'
@@ -99,7 +100,9 @@ def build_graph(point_lines, bounds):
             else:
                 # Y-offset
                 xoff = c1.x - bounds['left'].x
-                for yoff in range(c1.y, c2.y + 1):
+                top = c1.y if c1 < c2 else c2.y
+                bottom = c2.y if c2 > c1 else c1.y
+                for yoff in range(top, bottom + 1):
                     outlines[bounds['voff'] + yoff][bounds['hoff'] + xoff] = ROCK
 
     return outlines
@@ -123,10 +126,12 @@ def drop_sand(graph, bounds) -> bool:
     '''
     rowmax = len(graph)
     colmax = len(graph[0])
+    rowstart = bounds['voff'] + 1
+    colstart = bounds['hoff'] + bounds['woff1']
 
     # Start 1 below Sand Origin:
-    row = bounds['voff'] + 1
-    col = bounds['hoff'] + bounds['woff1']
+    row = rowstart
+    col = colstart
 
     while True:
         match graph[row][col]:
@@ -147,13 +152,16 @@ def drop_sand(graph, bounds) -> bool:
                 # Check diagonally right:
                 elif graph[row][col + 1] == '.':
                     col += 1
+                # New sand blocked - stop here:
+                elif row == rowstart and col == colstart:
+                    return False
                 # Nowhere to go - stop here:
                 else:
                     graph[row - 1][col] = 'o'
                     return True
 
 
-def main(verbose=True):
+def main(verbose=False):
     coord_lines = []
     with open(INFILE) as infile:
         coord_lines.extend(line.strip().split(' -> ') for line in infile)
@@ -192,11 +200,11 @@ def main(verbose=True):
 
     counter = 0
     while drop_sand(graph, bounds):
+        if verbose:
+            display(graph)
         counter += 1
-    ### My answer is too low - need to debug
 
-    if verbose:
-        display(graph)
+    display(graph)
 
     print(f'\nDropped units of sand before overflow:  {counter:,}\n')
 
