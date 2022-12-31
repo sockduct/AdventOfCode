@@ -62,7 +62,15 @@ class Point:
         )
 
 
-def calc_offsets(bounds):
+def calc_offsets(bounds, floor=False, floor_offset=10, point_lines=None):
+    if floor:
+        bounds['left'] = Point(bounds['left'].x - floor_offset, bounds['left'].y)
+        bounds['right'] = Point(bounds['right'].x + floor_offset, bounds['right'].y)
+        bounds['lower'] = Point(bounds['lower'].x, bounds['lower'].y + 2)
+
+        point_lines.append([Point(bounds['left'].x, bounds['lower'].y),
+                            Point(bounds['right'].x, bounds['lower'].y)])
+
     bounds['width'] = bounds['right'].x - bounds['left'].x
     bounds['woff1'] = bounds['sand_orig'].x - bounds['left'].x
     bounds['woff2'] = bounds['right'].x - bounds['sand_orig'].x
@@ -129,6 +137,10 @@ def drop_sand(graph, bounds) -> bool:
     rowstart = bounds['voff'] + 1
     colstart = bounds['hoff'] + bounds['woff1']
 
+    # Check if sand backed up:
+    if graph[rowstart - 1][colstart] == 'o':
+        return False
+
     # Start 1 below Sand Origin:
     row = rowstart
     col = colstart
@@ -152,10 +164,8 @@ def drop_sand(graph, bounds) -> bool:
                 # Check diagonally right:
                 elif graph[row][col + 1] == '.':
                     col += 1
-                # New sand blocked - stop here:
-                elif row == rowstart and col == colstart:
-                    return False
                 # Nowhere to go - stop here:
+                # Note:  Will overwrite sand source - OK
                 else:
                     graph[row - 1][col] = 'o'
                     return True
@@ -192,7 +202,7 @@ def main(verbose=False):
         print(f"\nLeft bound:  {bounds['left']}\nRight bound:  {bounds['right']}\n"
               f"Lower bound:  {bounds['lower']}")
 
-    calc_offsets(bounds)
+    calc_offsets(bounds, floor=True, floor_offset=200, point_lines=point_lines)
     graph = build_graph(point_lines, bounds)
 
     if verbose:
