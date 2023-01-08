@@ -26,7 +26,7 @@ from ds.grid import Grid, Point
 
 
 # INFILE = 'd15p1t1.txt'
-INFILE = Path(__file__).parent / 'd15p1t1.txt'
+INFILE = Path(__file__).parent/'d15p1t1.txt'
 # INFILE = 'd15p1.txt'
 
 
@@ -44,7 +44,9 @@ def main(verbose=True):
             if not (res := re.fullmatch(pattern, line.strip())):
                 raise ValueError(f'Error parsing:  {line.strip()}')
             sx, sy, bx, by = map(int, res.groups())
-            sensors[Point(sx, sy)] = Point(bx, by)
+            sensor = Point(sx, sy)
+            beacon = Point(bx, by)
+            sensors[sensor] = (beacon, sensor.mandist(beacon))
 
             # Find corners of grid:
             if sx < minx or bx < minx:
@@ -57,9 +59,22 @@ def main(verbose=True):
                 maxy = max((sy, by))
 
     grid = Grid(Point(minx, miny), Point(maxx, maxy))
-    for sensor, beacon in sensors.items():
+    for sensor, beaconinfo in sensors.items():
+        beacon, _ = beaconinfo
         grid.plot(sensor, 'S')
         grid.plot(beacon, 'B')
+
+    # Calculate manhattan distance between sensor at (8, 7) and its beacon at
+    # (2, 10)
+    sensor = Point(8, 7)
+    beacon = sensors[sensor][0]
+    print(f'Manhattan distance between sensor {sensor} and beacon {beacon}:  '
+          f'{sensor.mandist(beacon)}')
+
+    # Next steps:
+    # * Plot all points <= calculated distance around sensor at (8, 7) - only
+    #   plot if point empty (== '.').
+    ...
 
     if verbose:
         print('\nInput List - Sensor: Closest Beacon:')
