@@ -46,17 +46,19 @@ def main(verbose=True):
             sx, sy, bx, by = map(int, res.groups())
             sensor = Point(sx, sy)
             beacon = Point(bx, by)
-            sensors[sensor] = (beacon, sensor.mandist(beacon))
+            mandist = sensor.mandist(beacon)
+            sensors[sensor] = (beacon, mandist)
 
-            # Find corners of grid:
-            if sx < minx or bx < minx:
-                minx = min((sx, bx))
-            if sx > maxx or bx > maxx:
-                maxx = max((sx, bx))
-            if sy < miny or by < miny:
-                miny = min((sy, by))
-            if sy > maxy or by > maxy:
-                maxy = max((sy, by))
+            # Find corners of grid including accounting for "manhattan distance
+            # radius" around each point:
+            if sx < minx or bx < minx or (sx - mandist) < minx or (bx - mandist) < minx:
+                minx = min((sx, bx, sx - mandist, bx - mandist))
+            if sx > maxx or bx > maxx or (sx + mandist) > maxx or (bx + mandist) > maxx:
+                maxx = max((sx, bx, sx + mandist, bx + mandist))
+            if sy < miny or by < miny or (sy - mandist) < miny or (by - mandist) < miny:
+                miny = min((sy, by, sy - mandist, by - mandist))
+            if sy > maxy or by > maxy or (sy + mandist) > maxy or (by + mandist) > maxy:
+                maxy = max((sy, by, sy + mandist, by + mandist))
 
     grid = Grid(Point(minx, miny), Point(maxx, maxy))
     for sensor, beaconinfo in sensors.items():
