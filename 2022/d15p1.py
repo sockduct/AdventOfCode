@@ -62,24 +62,28 @@ def main(verbose=True):
 
     grid = Grid(Point(minx, miny), Point(maxx, maxy))
     for sensor, beaconinfo in sensors.items():
-        beacon, _ = beaconinfo
+        beacon, mandist = beaconinfo
         grid.plot(sensor, 'S')
         grid.plot(beacon, 'B')
+        grid.circle(sensor, mandist, '#', overwrite=False)
 
+    # Retrieve grid row 10:
+    row = grid.getrow(10)
+    cantbe = row.count('#')
+    print(f"\nRow 10:\n{row}\nNumber of positions where beacon can't be:  {cantbe:,}\n")
+
+    '''
     # Calculate manhattan distance between sensor at (8, 7) and its beacon at
     # (2, 10)
     sensor = Point(8, 7)
     beacon = sensors[sensor][0]
     print(f'Manhattan distance between sensor {sensor} and beacon {beacon}:  '
-          f'{sensor.mandist(beacon)}')
-
-    # Next steps:
-    # * Plot all points <= calculated distance around sensor at (8, 7) - only
-    #   plot if point empty (== '.').
-    ...
+            f'{sensor.mandist(beacon)}')
+    grid.circle(sensor, sensor.mandist(beacon), '#', overwrite=False)
+    '''
 
     if verbose:
-        print('\nInput List - Sensor: Closest Beacon:')
+        print('Input List - Sensor: Closest Beacon:')
         pprint(sensors, sort_dicts=False)
 
     print(f'\nPlot of sensors and beacons:\n{grid}')
