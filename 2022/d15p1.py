@@ -125,6 +125,11 @@ def main(verbose=True):
     # Retrieve grid row target:
     # row_target = 10  # Example problem input
     row_target = 2_000_000
+
+    ### Part 2 - Approach thoughts:
+    # * Use numpy matrix - consider using bool type
+    # * See if numpy allows setting range for row/col updates when "drawing" grid
+
     '''
     row = grid.getrow(row_target)
     cantbe = row.count('#')
