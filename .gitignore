@@ -19,12 +19,12 @@ out*.txt
 *_sol.py
 
 # Not checking in output files for 2022:
-2022/*.txt
+20??/*.txt
 
 # Not checking in helper files for 2022 solutions:
-2022/*.xlsx
-2022/*.png
+20??/*.xlsx
+20??/*.png
 
 # Data Structures directory files tracked in another repository - ignore:
 ds/
-
+ds
