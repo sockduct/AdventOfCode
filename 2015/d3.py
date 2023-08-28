@@ -19,71 +19,69 @@ Example:
 '''
 
 
-# INFILE = 'd3t3.txt'
+# INFILE = 'd3t1.txt'
+# INFILE = 'd3t2.txt'
 INFILE = 'd3.txt'
 
 
-class Grid:
-    def __init__(self, width=10, height=10):
-        '''
-        array access is y, x but presenting to user as x, y
-        '''
-        self.width = width
-        self.height = height
-        self.x = 0
-        self.y = 0
-        self.grid = [[0 for _ in range(width)] for _ in range(height)]
-
-    def __repr__(self):
-        return f'Grid({self.width}, {self.height})'
-
-    def deliver(self):
-        '''Deliver present to current grid location'''
-        self.grid[self.y][self.x] += 1
-
-    def north(self):
-        self.y += 1
-        self.deliver()
-
-    def south(self):
-        self.y -= 1
-        self.deliver()
-
-    def west(self):
-        self.x -= 1
-        self.deliver()
-
-    def east(self):
-        self.x += 1
-        self.deliver()
-
-    def visited(self):
-        return sum(sum(bool(element) for element in row) for row in self.grid)
+from collections import defaultdict
 
 
-def process(line, grid):
-    grid.deliver()
-    for element in line:
+def deliver(grid, x, y):
+    grid[(x, y)] += 1
+
+
+def process(line, robo=False):
+    if robo:
+        dgrid2 = defaultdict(int)
+        x2 = 0
+        y2 = 0
+        deliver(dgrid2, x2, y2)
+    dgrid = defaultdict(int)
+    x = 0
+    y = 0
+    deliver(dgrid, x, y)
+
+    for counter, element in enumerate(line.strip(), 1):
         match element:
             case '^':
-                grid.north()
+                if robo and counter % 2 == 0:
+                    y2 += 1
+                else:
+                    y += 1
             case 'v':
-                grid.south()
+                if robo and counter % 2 == 0:
+                    y2 -= 1
+                else:
+                    y -= 1
             case '>':
-                grid.east()
+                if robo and counter % 2 == 0:
+                    x2 += 1
+                else:
+                    x += 1
             case '<':
-                grid.west()
+                if robo and counter % 2 == 0:
+                    x2 -= 1
+                else:
+                    x -= 1
             case _:
                 raise ValueError(f'Unexpected value:  {element}')
 
+        if robo and counter % 2 == 0:
+            deliver(dgrid2, x2, y2)
+        else:
+            deliver(dgrid, x, y)
+
+    if robo:
+        print(f'Homes receiving at least one present:  {len(dgrid.keys() | dgrid2.keys())}')
+    else:
+        print(f'Homes receiving at least one present:  {len(dgrid.keys())}')
+
 
 def main():
-    grid = Grid()
     with open(INFILE) as infile:
         for line in infile:
-            process(line, grid)
-
-    print(f'Homes receiving at least one present:  {grid.visited()}')
+            process(line, robo=True)
 
 
 if __name__ == '__main__':
