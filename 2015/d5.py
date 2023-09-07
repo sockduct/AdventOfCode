@@ -22,12 +22,13 @@ Part 2:
 
 
 # INFILE = 'd5t1.txt'
-INFILE = 'd5t2.txt'
-# INFILE = 'd5.txt'
+# INFILE = 'd5t2.txt'
+INFILE = 'd5.txt'
 
 
 from collections import Counter, defaultdict
-from itertools import islice, pairwise
+from itertools import islice, pairwise, zip_longest
+from pathlib import Path
 
 
 def nice_string(string, verbose=False):
@@ -68,7 +69,7 @@ def nice_string(string, verbose=False):
     return True
 
 
-def nice_string2(string, verbose=True):
+def nice_string2(string, verbose=False):
     '''
     1) It contains a pair of any two letters that appears at least twice in the
        string without overlapping, like xyxy (xy) or aabcdefgaa (aa), but not
@@ -77,8 +78,17 @@ def nice_string2(string, verbose=True):
        between them, like xyx, abcdefeghi (efe), or even aaa.
     '''
     count = defaultdict(int)
-    for letter1, letter2 in zip(islice(string, 0, None, 2), islice(string, 1, None, 2)):
-        count[(letter1, letter2)] += 1
+    last_pair = None
+    last_letter = None
+    for letter1, letter2 in zip_longest(islice(string, 0, None, 2), islice(string, 1, None, 2)):
+        if last_letter:
+            offset_pair = (last_letter, letter1)
+            if offset_pair != last_pair:
+                count[offset_pair] += 1
+        if letter1 and letter2:
+            count[(letter1, letter2)] += 1
+            last_pair = (letter1, letter2)
+            last_letter = letter2
 
     # Check for item 1:
     if all(item < 2 for item in count.values()):
@@ -87,6 +97,7 @@ def nice_string2(string, verbose=True):
         return False
 
     # Check for item 2:
+    ### Suspect same problem fixed above - need to check offset pairs...
     if all(
         pair1[0] != pair2[1]
         for pair1, pair2 in zip(
@@ -102,7 +113,7 @@ def nice_string2(string, verbose=True):
 
 def main():
     string_count = dict(total=0, nice=0, naughty=0)
-    with open(INFILE) as infile:
+    with open(Path(__file__).parent/INFILE) as infile:
         for line in infile:
             string_count['total'] += 1
             # Part 1:
