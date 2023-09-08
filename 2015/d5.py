@@ -21,14 +21,20 @@ Part 2:
 '''
 
 
+
 # INFILE = 'd5t1.txt'
-# INFILE = 'd5t2.txt'
-INFILE = 'd5.txt'
+INFILE = 'd5t2.txt'
+# INFILE = 'd5.txt'
 
 
 from collections import Counter, defaultdict
+import contextlib
 from itertools import islice, pairwise, zip_longest
 from pathlib import Path
+
+
+class EarlyExit(Exception):
+    pass
 
 
 def nice_string(string, verbose=False):
@@ -69,7 +75,7 @@ def nice_string(string, verbose=False):
     return True
 
 
-def nice_string2(string, verbose=False):
+def nice_string2(string, line_count=0, verbose=True):
     '''
     1) It contains a pair of any two letters that appears at least twice in the
        string without overlapping, like xyxy (xy) or aabcdefgaa (aa), but not
@@ -80,6 +86,16 @@ def nice_string2(string, verbose=False):
     count = defaultdict(int)
     last_pair = None
     last_letter = None
+    '''
+    Problem:  'zurkakkkpchzxjhq' should fail but doesn't!
+
+    Combine:
+    list(zip_longest(islice(s1, 0, None, 2), islice(s1, 1, None, 2)))
+    list(zip_longest(islice(s1, 1, None, 2), islice(s1, 2, None, 2)))
+
+    Approach:
+    One way is to add location (index into string) and make sure pairs don't overlap
+    '''
     for letter1, letter2 in zip_longest(islice(string, 0, None, 2), islice(string, 1, None, 2)):
         if last_letter:
             offset_pair = (last_letter, letter1)
@@ -93,36 +109,43 @@ def nice_string2(string, verbose=False):
     # Check for item 1:
     if all(item < 2 for item in count.values()):
         if verbose:
-            print(f'String "{string}" failed test 1 - naughty.')
+            print(f'{line_count:>4}:  {string} naughty - failed test 1')
         return False
+    elif verbose:
+        print(f'{line_count:>4}:  {string} passed test 1 => {count}')
 
     # Check for item 2:
-    ### Suspect same problem fixed above - need to check offset pairs...
-    if all(
-        pair1[0] != pair2[1]
-        for pair1, pair2 in zip(
-            pairwise(string), pairwise(islice(string, 1, None))
-        )
-    ):
-        if verbose:
-            print(f'String "{string}" failed test 2 - naughty.')
-        return False
+    for pair1, pair2 in zip(pairwise(string), pairwise(islice(string, 1, None))):
+        if pair1[0] == pair2[1]:
+            return True
 
-    return True
+    if verbose:
+        print(f'{line_count:>4}:  {string} naughty - failed test 2')
+    return False
 
 
-def main():
+def main(verbose=True):
     string_count = dict(total=0, nice=0, naughty=0)
-    with open(Path(__file__).parent/INFILE) as infile:
-        for line in infile:
-            string_count['total'] += 1
-            # Part 1:
-            # if nice_string(line.strip()):
-            # Part 2:
-            if nice_string2(line.strip()):
-                string_count['nice'] += 1
-            else:
-                string_count['naughty'] += 1
+    line_count = 0
+    with contextlib.suppress(EarlyExit):
+        with open(Path(__file__).parent/INFILE) as infile:
+            for line in infile:
+                line_count += 1
+                string_count['total'] += 1
+                # Part 1:
+                # if nice_string(line.strip()):
+                # Part 2:
+                if nice_string2(line.strip(), line_count):
+                    string_count['nice'] += 1
+                    if verbose:
+                        print(f'{line_count:>4}:  {line.strip()} nice')
+                else:
+                    string_count['naughty'] += 1
+
+                '''
+                if line_count > 20:
+                    raise EarlyExit
+                '''
 
     print(f'String tally:\n* Nice:  {string_count["nice"]}'
           f'\n* Naughty:  {string_count["naughty"]}\n* Total:  {string_count["total"]}')
