@@ -23,8 +23,8 @@ Part 2:
 
 
 # INFILE = 'd5t1.txt'
-INFILE = 'd5t2.txt'
-# INFILE = 'd5.txt'
+# INFILE = 'd5t2.txt'
+INFILE = 'd5.txt'
 
 
 from collections import Counter, defaultdict
@@ -83,36 +83,23 @@ def nice_string2(string, line_count=0, verbose=True):
     2) It contains at least one letter which repeats with exactly one letter
        between them, like xyx, abcdefeghi (efe), or even aaa.
     '''
-    count = defaultdict(int)
-    last_pair = None
-    last_letter = None
-    '''
-    Problem:  'zurkakkkpchzxjhq' should fail but doesn't!
 
-    Combine:
-    list(zip_longest(islice(s1, 0, None, 2), islice(s1, 1, None, 2)))
-    list(zip_longest(islice(s1, 1, None, 2), islice(s1, 2, None, 2)))
-
-    Approach:
-    One way is to add location (index into string) and make sure pairs don't overlap
-    '''
-    for letter1, letter2 in zip_longest(islice(string, 0, None, 2), islice(string, 1, None, 2)):
-        if last_letter:
-            offset_pair = (last_letter, letter1)
-            if offset_pair != last_pair:
-                count[offset_pair] += 1
-        if letter1 and letter2:
-            count[(letter1, letter2)] += 1
-            last_pair = (letter1, letter2)
-            last_letter = letter2
+    count = defaultdict(list)
+    for pos, pair in enumerate(pairwise(string)):
+        count[pair].append(pos)
 
     # Check for item 1:
-    if all(item < 2 for item in count.values()):
+    candidates = {k: v for k, v in count.items() if len(v) > 1}
+    if not any(candidate for candidate, pos in candidates.items()
+               if len(pos) > 2 or abs(pos[0] - pos[1]) > 1):
         if verbose:
             print(f'{line_count:>4}:  {string} naughty - failed test 1')
         return False
-    elif verbose:
+
+    '''
+    if verbose:
         print(f'{line_count:>4}:  {string} passed test 1 => {count}')
+    '''
 
     # Check for item 2:
     for pair1, pair2 in zip(pairwise(string), pairwise(islice(string, 1, None))):
