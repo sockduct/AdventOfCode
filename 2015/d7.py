@@ -96,15 +96,71 @@ def parse(line, wires):
             raise ValueError(f'Unexpected sequence:  {line}')
 
 
-def getwireval(wires, wireval):
+def evalexpr(wires, expr, verbose=True):
+    '''
+    if verbose:
+        print(f'Evaluating expression:  {expr}')
+    '''
+    # Expression is integer:
+    if isinstance(expr, int):
+        if verbose:
+            print('Reached integer value...')
+        return expr
+    # Expression is wire:
+    elif isinstance(expr, str):
+        # Wire has integer value:
+        if (val := isnum(wires[expr])) or val is not None:
+            if verbose:
+                print(f'Wire {expr} has integer value of {val}')
+            return val
+        # Wire is an expression:
+        return evalexpr(wires, wires[expr])
+    # Expression is expression - check for NOT expression (only unary operator):
+    elif len(expr) == 2:
+        op, uexpr = expr
+        if op != 'NOT':
+            raise ValueError(f'Expected "NOT", got:  {op}')
+
+        return MAXVAL + ~evalexpr(wires, uexpr)
+    # Expression is expression - check for binary expression:
+    else:
+        lexpr, op, rexpr = expr
+        match op:
+            case 'AND':
+                return evalexpr(wires, lexpr) & evalexpr(wires, rexpr)
+            case 'OR':
+                return evalexpr(wires, lexpr) | evalexpr(wires, rexpr)
+            case 'LSHIFT':
+                return evalexpr(wires, lexpr) << evalexpr(wires, rexpr)
+            case 'RSHIFT':
+                return evalexpr(wires, lexpr) >> evalexpr(wires, rexpr)
+            case _:
+                raise ValueError(f'Expected operator of AND|OR|LSHIFT|RSHIFT, got "{op}"')
+
+
+def getwireval(wires, wireval, verbose=False):
     '''
     Recursively parse wires dict to calculate end value for wire passed in
     wireval
+
+    Cases:
+    1) wire = integer
+    2) wire = [<expr>]
+        2a) <expr> = NOT, wire
+        2b) <expr> = lvalue, BINOP, rvalue
+            2bi) xvalue = integer|wire
+
+    Bitwise Operators:
+    * NOT
+    * AND
+    * OR
+    * LSHIFT
+    * RSHIFT
     '''
-    ...
+    return evalexpr(wires, wires[wireval])
 
 
-def main():
+def main(verbose=False):
     # Can't use None for defaultdict, must use a callable for it to work as
     # desired:
     wires = defaultdict(lambda: None)
