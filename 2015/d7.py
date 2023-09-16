@@ -7,7 +7,9 @@ Bitwise logic for 16-bt signal
 '''
 
 
-INFILE = 'd7.txt'
+# INFILE = 'd7.txt'
+# Change value of wire b to result from part 1:
+INFILE = 'd72.txt'
 # INFILE = 'd7t1.txt'
 
 MAXVAL = 2**16
@@ -96,49 +98,45 @@ def parse(line, wires):
             raise ValueError(f'Unexpected sequence:  {line}')
 
 
-def evalexpr(wires, expr, verbose=True):
-    '''
-    if verbose:
-        print(f'Evaluating expression:  {expr}')
-    '''
-    # Expression is integer:
-    if isinstance(expr, int):
-        if verbose:
-            print('Reached integer value...')
-        return expr
-    # Expression is wire:
-    elif isinstance(expr, str):
-        # Wire has integer value:
-        if (val := isnum(wires[expr])) or val is not None:
-            if verbose:
-                print(f'Wire {expr} has integer value of {val}')
-            return val
-        # Wire is an expression:
-        return evalexpr(wires, wires[expr])
-    # Expression is expression - check for NOT expression (only unary operator):
-    elif len(expr) == 2:
+def evalexpr(wires, wirevals, expr):
+    # Check for NOT expression (only unary operator):
+    if len(expr) == 2:
         op, uexpr = expr
         if op != 'NOT':
             raise ValueError(f'Expected "NOT", got:  {op}')
 
-        return MAXVAL + ~evalexpr(wires, uexpr)
-    # Expression is expression - check for binary expression:
+        if isinstance(uexpr, int):
+            return MAXVAL + ~val
+        elif isinstance(uexpr, str):
+            return MAXVAL + ~getwireval(wires, wirevals, uexpr)
+        else:
+            return MAXVAL + ~evalexpr(wires, wirevals, uexpr)
+    # Check for binary expression:
     else:
         lexpr, op, rexpr = expr
+        if isinstance(lexpr, list):
+            lexpr = evalexpr(wires, wirevals, lexpr)
+        elif isinstance(lexpr, str):
+            lexpr = getwireval(wires, wirevals, lexpr)
+        if isinstance(rexpr, list):
+            rexpr = evalexpr(wires, wirevals, rexpr)
+        elif isinstance(rexpr, str):
+            rexpr = getwireval(wires, wirevals, rexpr)
+
         match op:
             case 'AND':
-                return evalexpr(wires, lexpr) & evalexpr(wires, rexpr)
+                return lexpr & rexpr
             case 'OR':
-                return evalexpr(wires, lexpr) | evalexpr(wires, rexpr)
+                return lexpr | rexpr
             case 'LSHIFT':
-                return evalexpr(wires, lexpr) << evalexpr(wires, rexpr)
+                return lexpr << rexpr
             case 'RSHIFT':
-                return evalexpr(wires, lexpr) >> evalexpr(wires, rexpr)
+                return lexpr >> rexpr
             case _:
                 raise ValueError(f'Expected operator of AND|OR|LSHIFT|RSHIFT, got "{op}"')
 
 
-def getwireval(wires, wireval, verbose=False):
+def getwireval(wires, wirevals, wire, verbose=False):
     '''
     Recursively parse wires dict to calculate end value for wire passed in
     wireval
@@ -157,7 +155,13 @@ def getwireval(wires, wireval, verbose=False):
     * LSHIFT
     * RSHIFT
     '''
-    return evalexpr(wires, wires[wireval])
+    # Do we have wireval?
+    if wire in wirevals:
+        return wirevals[wire]
+
+    wirevals[wire] = evalexpr(wires, wirevals, wires[wire])
+
+    return wirevals[wire]
 
 
 def main(verbose=False):
@@ -169,9 +173,23 @@ def main(verbose=False):
         for line in infile:
             parse(line.strip(), wires)
 
-    wireval = 'a'
-    res = getwireval(wires, wireval)
-    print(f'Value for wire {wireval}:  {res}')
+    # Store resulting wire values:
+    wirevals = {k: v for k, v in wires.items() if isinstance(v, int)}
+
+    wire = 'a'
+    res = getwireval(wires, wirevals, wire)
+    print(f'Value for wire {wire}:  {res}')
+
+    '''
+    # Part 2 - Reset wire 'b' to result from part 1 and recalculate wire 'a':
+    wires['b'] = res
+    # Reset wirevals:
+    wirevals = {k: v for k, v in wires.items() if isinstance(v, int)}
+    res = getwireval(wires, wirevals, wire)
+    print(f'Part 2, Value for wire {wire}:  {res}')
+    '''
+
+    # Debugging:
     # pprint(wires)
 
 
