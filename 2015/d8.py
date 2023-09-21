@@ -40,8 +40,10 @@ from string import ascii_lowercase
 # Types:
 @dataclass
 class Charcnt:
+    encode: int = 0
     code: int = 0
     mem: int = 0
+    remem: int = 0
     bs: int = 0
     dq: int = 0
     he: int = 0
@@ -55,6 +57,7 @@ def recount(line, counter):
     # * <backslash> + xHH is always interpreted as single character, can't split
     #   it up
     # * e.g., doesn't work:  re3 = r'\\x[0-9a-f]{2}'
+    # * e.g., doesn't work:  re3 = r'<backslash>x[0-9a-f]{2}'
     #
     # Note:  This only works when read file in as binary file
     re3 = b'\\' + b'x'
@@ -65,7 +68,7 @@ def recount(line, counter):
     counter.remem += len(res)
 
 
-def process(line, counter):
+def parse(line, counter):
     '''
     PowerShell
     * Count occurrences of '\\' (d8.txt = 111):
@@ -108,16 +111,51 @@ def process(line, counter):
             entity.append(char)
 
 
+def build(line, counter):
+    entity = []
+    binarray = bytearray()
+    for index, char in enumerate(line):
+        # For debugging only:
+        curchar = chr(char)
+        curindex = index
+        if not entity and char in LOWERCASE:
+            binarray.append(char)
+        else:
+            entity.append(char)
+            if entity == [QUOTE]:
+                binarray.extend((BACKSLASH, QUOTE))
+                entity.clear()
+            elif entity == [BACKSLASH, BACKSLASH]:
+                binarray.extend(entity)
+                binarray.extend(entity)
+                entity.clear()
+            elif entity == [BACKSLASH, QUOTE]:
+                binarray.extend((BACKSLASH, BACKSLASH))
+                binarray.extend(entity)
+                entity.clear()
+            elif entity[:2] == [BACKSLASH, LOWER_X] and len(entity) == 4:
+                binarray.append(BACKSLASH)
+                binarray.extend(entity)
+                entity.clear()
+
+    binarray.insert(0, QUOTE)
+    binarray.append(QUOTE)
+    counter.encode += len(binarray)
+
+
 def main():
     parent_dir = Path(__file__).parent
     counter = Charcnt()
     with open(parent_dir/INFILE, mode='rb') as infile:
         for line in infile:
-            process(line.strip(), counter)
+            line = line.strip()
+            parse(line, counter)
+            build(line, counter)
 
-    print(f'In-code = {counter.code}\nIn-memory =  {counter.mem}\n'
-          f'Backslashes = {counter.bs}\nDouble-quotes = {counter.dq}\n'
-          f'Hex-escapes = {counter.he}\nDifference = {counter.code - counter.mem}')
+    print(f'In-code = {counter.code}\nBackslashes = {counter.bs}\n'
+          f'Double-quotes = {counter.dq}\nHex-escapes = {counter.he}\n'
+          f'In-memory =  {counter.mem}\nDifference-1 = {counter.code - counter.mem}\n'
+          f'Encoded = {counter.encode}\nDifference-2 = {counter.encode - counter.code}')
 
 
 if __name__ == '__main__':
