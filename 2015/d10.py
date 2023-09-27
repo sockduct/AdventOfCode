@@ -1,4 +1,4 @@
-#! /usr/bin/env python 3
+#! /usr/bin/env python3
 
 
 '''
@@ -15,6 +15,8 @@ INFILE = 'd10.txt'
 
 
 # Libraries
+from collections import deque
+from pathlib import Path
 import re
 
 
@@ -29,24 +31,65 @@ def parse(line):
     return new_digit
 
 
-def main(verbose=False):
-    with open(INFILE) as infile:
+def parse2(line):
+    '''
+    For each step, take the previous value, and replace each run of digits
+    (like 111) with the number of digits (3) followed by the digit itself (1).
+
+    Cases:
+    * last and current match:
+        * increment count, continue
+    * last and current don't match
+        *
+    '''
+    new_number = deque()
+    last_digit = line.popleft()
+    digit_count = 1
+    while line:
+        digit = line.popleft()
+        # Continuous run?
+        if last_digit == digit:
+            digit_count += 1
+        # No - new run:
+        else:
+            new_number.extend((str(digit_count), last_digit))
+            last_digit = digit
+            digit_count = 1
+
+    return new_number
+
+
+def main(verbose=True):
+    '''
+    with open(Path(__file__).parent/INFILE) as infile:
         line = infile.read().strip()
+    '''
 
     # line = '1321131112'
     # line = '1'
-    count = 40
+    line = '11'
+
+    line2 = deque(line)
+    count = 6
 
     if verbose:
-        print(f'Starting with:  {line}')
+        # print(f'Starting with:  {line}')
+        print(f'Starting with:  {line2}')
     for i in range(1, count + 1):
-        res = parse(line)
+        # res = parse(line)
+        res2 = parse2(line2)
         if verbose:
-            print(f'{i:>2}) Transformed to:  {res}')
+            # print(f'{i:>2}) Transformed to:  {res}')
+            print(f'{i:>2}) Transformed to:  {res2}')
+        if i >= 35:
+            # print(f'Count:  {i},  Current length:  {len(res):,},  {len(res2):,}')
+            print(f'Count:  {i},  Current length:  {len(res2):,}')
 
-        line = res
+        # line = res
+        line2 = res2
 
-    print(f'Length after {count} transforms:  {len(res)}')
+    # print(f'Length after {count} transforms:  {len(res):,}')
+    print(f'Length after {count} transforms:  {len(res2):,}')
 
 
 if __name__ == '__main__':
