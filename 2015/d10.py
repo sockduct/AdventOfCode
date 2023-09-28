@@ -40,7 +40,9 @@ def parse2(line):
     * last and current match:
         * increment count, continue
     * last and current don't match
-        *
+        * build out new_number, update last_digit and digit_count
+    * On each pass, check if line empty
+        * Yes then build out new_number from final data
     '''
     new_number = deque()
     last_digit = line.popleft()
@@ -56,21 +58,28 @@ def parse2(line):
             last_digit = digit
             digit_count = 1
 
+        # Empty?
+        if not line:
+            new_number.extend((str(digit_count), last_digit))
+
+    # Edge case where line consists of single number
+    if not new_number:
+        new_number.extend((str(digit_count), last_digit))
+
     return new_number
 
 
-def main(verbose=True):
-    '''
+def main(verbose=False):
     with open(Path(__file__).parent/INFILE) as infile:
         line = infile.read().strip()
-    '''
 
+    # Test cases:
     # line = '1321131112'
     # line = '1'
-    line = '11'
+    # line = '11'
 
     line2 = deque(line)
-    count = 6
+    count = 50
 
     if verbose:
         # print(f'Starting with:  {line}')
