@@ -27,6 +27,15 @@ def parse(line, people):
     people[person][peer] = int(number) if direction == 'gain' else -int(number)
 
 
+def add_self(people):
+    people['Me']
+
+    for person in people:
+        if person != 'Me':
+            people['Me'][person] = 0
+            people[person]['Me'] = 0
+
+
 def happiness(arrangement, people):
     score = 0
 
@@ -58,6 +67,8 @@ def main():
         for line in infile:
             parse(line, people)
 
+    # Part 2 - add self:
+    add_self(people)
     # pprint(people)
 
     res = max_permute(people)
