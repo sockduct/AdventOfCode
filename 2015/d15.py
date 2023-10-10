@@ -17,8 +17,8 @@ Perfect cookie recipe:
 '''
 
 
-# INFILE = 'd15.txt'
-INFILE = 'd15t1.txt'
+INFILE = 'd15.txt'
+# INFILE = 'd15t1.txt'
 
 
 # Libraries:
@@ -56,27 +56,29 @@ def max_combo(ingredients):
 
     ingred1 = ingredients[0]
     ingred2 = ingredients[1]
+    ingred3 = ingredients[2]
+    ingred4 = ingredients[3]
     props = ('capacity', 'durability', 'flavor', 'texture')
-    for i1 in range(1, tsp + 1):
-        i2 = tsp - i1
-        '''
-        # Need to validate all results > 0:
-        score = reduce(
-            mul, (
-                (getattr(ingred1, prop) * i1 + getattr(ingred2, prop) * i2)
-                for prop in props
-            )
-        )
-        '''
-        properties = [
-            getattr(ingred1, prop) * i1 + getattr(ingred2, prop) * i2
-            for prop in props
-        ]
+    # 0-0-1-99, 0-0-2-98, ..., 0-0-99-1
+    # 0-1-0-99, 0-1-1-98, ..., 0-1-98-1
+    # 0-2-0-98, 0-2-1-97, ..., 0-2-97-1
+    for i1 in range(tsp):
+        for i2 in range(tsp):
+            for i3 in range(tsp):
+                if i2 + i3 > tsp or i1 + i2 > tsp or i1 + i2 + i3 > tsp or i1 + i2 + i3 == 0:
+                    continue
+                i4 = tsp - i3 - i2 - i1
 
-        if all(prop > 0 for prop in properties):
-            score = reduce(mul, properties)
-            if score > max_score:
-                max_score = score
+                properties = [
+                    (getattr(ingred1, prop) * i1 + getattr(ingred2, prop) * i2 +
+                     getattr(ingred3, prop) * i3 + getattr(ingred4, prop) * i4)
+                    for prop in props
+                ]
+
+                if all(prop > 0 for prop in properties):
+                    score = reduce(mul, properties)
+                    if score > max_score:
+                        max_score = score
 
     return max_score
 
