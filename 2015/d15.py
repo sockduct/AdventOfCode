@@ -59,14 +59,24 @@ def max_combo(ingredients):
     props = ('capacity', 'durability', 'flavor', 'texture')
     for i1 in range(1, tsp + 1):
         i2 = tsp - i1
+        '''
+        # Need to validate all results > 0:
         score = reduce(
             mul, (
                 (getattr(ingred1, prop) * i1 + getattr(ingred2, prop) * i2)
                 for prop in props
             )
         )
-        if score > max_score:
-            max_score = score
+        '''
+        properties = [
+            getattr(ingred1, prop) * i1 + getattr(ingred2, prop) * i2
+            for prop in props
+        ]
+
+        if all(prop > 0 for prop in properties):
+            score = reduce(mul, properties)
+            if score > max_score:
+                max_score = score
 
     return max_score
 
