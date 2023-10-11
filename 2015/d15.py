@@ -24,7 +24,9 @@ INFILE = 'd15.txt'
 # Libraries:
 from dataclasses import dataclass
 from functools import reduce
+from itertools import product
 from operator import mul
+from pathlib import Path
 from pprint import pprint
 
 
@@ -50,7 +52,34 @@ def parse(line, ingredients):
                        flavor=int(flavor), texture=int(texture), calories=int(calories)))
 
 
-def max_combo(ingredients):
+def max_combo2(ingredients):
+    max_score = 0
+    tsp = 100
+
+    ingred1 = ingredients[0]
+    ingred2 = ingredients[1]
+    props = ('capacity', 'durability', 'flavor', 'texture')
+
+    for i1 in range(1, tsp + 1):
+        i2 = tsp - i1
+
+        calories = ingred1.calories * i1 + ingred2.calories * i2
+
+        if calories == 500:
+            properties = [
+                getattr(ingred1, prop) * i1 + getattr(ingred2, prop) * i2
+                for prop in props
+            ]
+
+            if all(prop > 0 for prop in properties):
+                score = reduce(mul, properties)
+                if score > max_score:
+                    max_score = score
+
+    return max_score
+
+
+def max_combo4(ingredients):
     max_score = 0
     tsp = 100
 
@@ -62,36 +91,43 @@ def max_combo(ingredients):
     # 0-0-1-99, 0-0-2-98, ..., 0-0-99-1
     # 0-1-0-99, 0-1-1-98, ..., 0-1-98-1
     # 0-2-0-98, 0-2-1-97, ..., 0-2-97-1
-    for i1 in range(tsp):
-        for i2 in range(tsp):
-            for i3 in range(tsp):
-                if i2 + i3 > tsp or i1 + i2 > tsp or i1 + i2 + i3 > tsp or i1 + i2 + i3 == 0:
-                    continue
-                i4 = tsp - i3 - i2 - i1
+    for i1, i2, i3 in product(range(tsp), range(tsp), range(tsp)):
+        if i2 + i3 > tsp or i1 + i2 > tsp or i1 + i2 + i3 > tsp or i1 + i2 + i3 == 0:
+            continue
+        i4 = tsp - i3 - i2 - i1
 
-                properties = [
-                    (getattr(ingred1, prop) * i1 + getattr(ingred2, prop) * i2 +
-                     getattr(ingred3, prop) * i3 + getattr(ingred4, prop) * i4)
-                    for prop in props
-                ]
+        calories = (ingred1.calories * i1 + ingred2.calories * i2 +
+                    ingred3.calories * i3 + ingred4.calories * i4)
 
-                if all(prop > 0 for prop in properties):
-                    score = reduce(mul, properties)
-                    if score > max_score:
-                        max_score = score
+        if calories == 500:
+            properties = [
+                (getattr(ingred1, prop) * i1 + getattr(ingred2, prop) * i2 +
+                getattr(ingred3, prop) * i3 + getattr(ingred4, prop) * i4)
+                for prop in props
+            ]
+
+            if all(prop > 0 for prop in properties):
+                score = reduce(mul, properties)
+                if score > max_score:
+                    max_score = score
 
     return max_score
 
 
 def main():
     ingredients = []
-    with open(INFILE) as infile:
+    with open(Path(__file__).parent/INFILE) as infile:
         for line in infile:
             parse(line, ingredients)
 
     pprint(ingredients)
 
-    res = max_combo(ingredients)
+    if len(ingredients) == 2:
+        res = max_combo2(ingredients)
+    elif len(ingredients) == 4:
+        res = max_combo4(ingredients)
+    else:
+        raise ValueError('Unexpected number of ingredients')
 
     print(f'Max score:  {res:,}')
 
