@@ -11,40 +11,47 @@ INFILE2 = 'd16clues.txt'
 
 
 # Libraries:
-from dataclasses import dataclass
+from pathlib import Path
+from pprint import pprint
 import re
 
 
-# Types:
-@dataclass
-class Clues:
-    children: int | None = None
-    cats: int | None = None
-    samoyeds: int | None = None
-    pomeranians: int | None = None
-    akitas: int | None = None
-    vizslas: int | None = None
-    goldfish: int | None = None
-    trees: int | None = None
-    cars: int | None = None
-    perfumes: int | None = None
+def sue_match(sue_vals, clues):
+    for attr, count in clues.items():
+        if attr in sue_vals and sue_vals[attr] != count:
+            return False
+
+    return True
 
 
-def main():
-    clues = Clues()
-    with open(INFILE2) as infile:
+def main(verbose=False):
+    directory = Path(__file__).parent
+    clues = {}
+    with open(directory/INFILE2) as infile:
         for line in infile:
             key, value = line.split()
-            key = key.strip(':')
-            clues.key = int(value)
+            clues[key.strip(':')] = int(value)
+
+    if verbose:
+        pprint(clues)
 
     sues = {}
-    with open(INFILE) as infile:
-        for line in infile:
+    with open(directory/INFILE) as infile:
+        for linenum, line in enumerate(infile):
             sue_number, items = re.match(r'Sue (\d+): (.*)', line).groups()
-            items = items.split(',')
-            items = [item.split() for item in items]
-            sues[sue_number] = { }
+            sue_number = int(sue_number)
+            sues[sue_number] = {key.strip(':'): int(value) for key, value in
+                [item.split() for item in items.split(',')]
+            }
+            if verbose and linenum > 30:
+                pprint(sues)
+                break
+
+    print('Looking for match with:')
+    pprint(clues)
+    for sue_num, sue_vals in sues.items():
+        if sue_match(sue_vals, clues):
+            print(f'Possible match with Sue {sue_num}:  {sue_vals}')
 
 
 if __name__ == '__main__':
