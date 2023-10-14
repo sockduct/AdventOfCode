@@ -24,6 +24,29 @@ def sue_match(sue_vals, clues):
     return True
 
 
+def sue_match2(sue_vals, clues):
+    '''
+    Changes from part 1:
+    * The cats and trees readings indicates that there are greater than that many
+    * The pomeranians and goldfish readings indicate that there are fewer than that many
+    '''
+    attrs = {'children', 'cats', 'samoyeds', 'pomeranians', 'akitas',
+             'vizslas', 'goldfish', 'trees', 'cars', 'perfumes'}
+    gt = {'cats', 'trees'}
+    lt = {'pomeranians', 'goldfish'}
+    eq = attrs - gt - lt
+    for attr, count in clues.items():
+        if attr in sue_vals:
+            if attr in eq and sue_vals[attr] != count:
+                return False
+            elif attr in gt and sue_vals[attr] <= count:
+                return False
+            elif attr in lt and sue_vals[attr] >= count:
+                return False
+
+    return True
+
+
 def main(verbose=False):
     directory = Path(__file__).parent
     clues = {}
@@ -50,7 +73,8 @@ def main(verbose=False):
     print('Looking for match with:')
     pprint(clues)
     for sue_num, sue_vals in sues.items():
-        if sue_match(sue_vals, clues):
+        # if sue_match(sue_vals, clues):
+        if sue_match2(sue_vals, clues):
             print(f'Possible match with Sue {sue_num}:  {sue_vals}')
 
 
