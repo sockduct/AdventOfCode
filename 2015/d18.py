@@ -19,8 +19,8 @@ Like a GIF for your yard
 '''
 
 
-# INFILE = 'd18.txt'
-INFILE = 'd18t1.txt'
+INFILE = 'd18.txt'
+# INFILE = 'd18t1.txt'
 
 
 # Libraries:
@@ -28,8 +28,38 @@ from pathlib import Path
 from grid import Grid
 
 
-def main(verbose=True):
-    size = 6
+def neighbors_on(grid, x, y):
+    count = 0
+
+    for yn in range(y - 1, y + 2):
+        if 0 <= yn < grid.y:
+            for xn in range(x - 1, x + 2):
+                if 0 <= xn < grid.x and not (xn == x and yn == y):
+                    if grid.point(xn, yn):
+                        count += 1
+
+    return count
+
+
+def cycle(grid):
+    new_grid = Grid(grid.x, grid.y)
+
+    for y in range(grid.y):
+        for x in range(grid.x):
+            amount = neighbors_on(grid, x, y)
+            if grid.point(x, y) and 2 <= amount <= 3:
+                new_grid.on(x, y)
+            elif not grid.point(x, y) and amount == 3:
+                new_grid.on(x, y)
+
+    return new_grid
+
+
+def main(verbose=False):
+    # cycles = 5
+    # size = 6
+    cycles = 100
+    size = 100
     grid = Grid(size, size)
 
     mydir = Path(__file__).parent
@@ -39,8 +69,14 @@ def main(verbose=True):
                 if char == '#':
                     grid.on(x, y)
 
-    if verbose:
-        print(f'Initial grid:\n{grid}')
+    print(f'Initial grid has {grid.status()[0]} lights on:\n{grid}')
+
+    for n in range(cycles):
+        grid = cycle(grid)
+        if verbose:
+            print(f'Grid after {n + 1} cycle(s) has {grid.status()[0]} lights on:\n{grid}')
+
+    print(f'\nFinal grid has {grid.status()[0]} lights on:\n{grid}')
 
 
 if __name__ == '__main__':

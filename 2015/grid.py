@@ -58,6 +58,9 @@ class Grid:
 
         return out
 
+    def point(self, x, y):
+        return self.grid[y][x]
+
     def status(self):
         enabled = sum(sum(row) for row in self.grid)
         disabled = self.x * self.y - enabled
