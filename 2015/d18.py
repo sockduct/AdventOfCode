@@ -55,6 +55,33 @@ def cycle(grid):
     return new_grid
 
 
+def cycle2(grid):
+    'Corners always on - cannot be turned off'
+    corners = tuple([(0, 0), (0, grid.y - 1), (grid.x - 1, 0), (grid.x - 1, grid.y - 1)])
+    new_grid = Grid(grid.x, grid.y)
+    corners_on(new_grid)
+
+    for y in range(grid.y):
+        for x in range(grid.x):
+            # Skip corners:
+            if (x, y) in corners:
+                continue
+
+            amount = neighbors_on(grid, x, y)
+            if grid.point(x, y) and 2 <= amount <= 3:
+                new_grid.on(x, y)
+            elif not grid.point(x, y) and amount == 3:
+                new_grid.on(x, y)
+
+    return new_grid
+
+
+def corners_on(grid):
+    'Turn corners on'
+    for x, y in [(0, 0), (0, grid.y - 1), (grid.x - 1, 0), (grid.x - 1, grid.y - 1)]:
+        grid.on(x, y)
+
+
 def main(verbose=False):
     # cycles = 5
     # size = 6
@@ -69,10 +96,13 @@ def main(verbose=False):
                 if char == '#':
                     grid.on(x, y)
 
+    corners_on(grid)
+
     print(f'Initial grid has {grid.status()[0]} lights on:\n{grid}')
 
     for n in range(cycles):
-        grid = cycle(grid)
+        # grid = cycle(grid)
+        grid = cycle2(grid)
         if verbose:
             print(f'Grid after {n + 1} cycle(s) has {grid.status()[0]} lights on:\n{grid}')
 
