@@ -12,19 +12,27 @@ Medicine for Rudolph
 '''
 
 
-# INFILE = 'd19.txt'
-INFILE = 'd19t1.txt'
+INFILE = 'd19.txt'
+# INFILE = 'd19t1.txt'
+# INFILE = 'd19t2.txt'
 
 
 # Libraries:
 from pathlib import Path
 from pprint import pprint
+import re
 
 
 def parse(line: str, replacements: dict[str, str], molecule) -> None | str:
     match line.split():
         case [mol1, '=>', mol2]:
-            replacements[mol1] = mol2
+            if mol1 not in replacements:
+                replacements[mol1] = [mol2]
+            # Always make values a list to simplify logic:
+            # elif not isinstance(replacements[mol1], list):
+            #    replacements[mol1] = [replacements[mol1], mol2]
+            else:
+                replacements[mol1].append(mol2)
         case [mol]:
             if not molecule:
                 return mol
@@ -42,10 +50,16 @@ def parse(line: str, replacements: dict[str, str], molecule) -> None | str:
 
 
 def generate(molecule: str, replacements: dict[str, str], generated: set[str]) -> None:
-    ...
+    # for index, element in enumerate(molecule):
+    for match_obj in re.finditer(r'[A-Z][a-z]?', molecule):
+        element = match_obj.group()
+        if element in replacements:
+            for replacement in replacements[element]:
+                generated.add(molecule[:match_obj.span()[0]] + replacement +
+                              molecule[match_obj.span()[1]:])
 
 
-def main(verbose: bool=True) -> None:
+def main(verbose: bool=False) -> None:
     mydir = Path(__file__).parent
     replacements: dict[str, str] = {}
     molecule = ''
@@ -66,9 +80,9 @@ def main(verbose: bool=True) -> None:
     res = generate(molecule, replacements, generated)
 
     if verbose:
-        print(f'Generated molecules:')
+        print(f'\nGenerated molecules:')
         pprint(generated)
-    print(f'Found {len(generated)} distinct molecules')
+    print(f'\nFound {len(generated)} distinct molecules')
 
 
 if __name__ == '__main__':
