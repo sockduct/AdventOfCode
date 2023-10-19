@@ -12,9 +12,10 @@ Medicine for Rudolph
 '''
 
 
-INFILE = 'd19.txt'
+# INFILE = 'd19.txt'
 # INFILE = 'd19t1.txt'
 # INFILE = 'd19t2.txt'
+INFILE = 'd19t1a.txt'
 
 
 # Libraries:
@@ -59,15 +60,31 @@ def generate(molecule: str, replacements: dict[str, str], generated: set[str]) -
                               molecule[match_obj.span()[1]:])
 
 
-def main(verbose: bool=False) -> None:
+def fabricate(molecule: str, replacements: dict[str, str], fabrications: set[list[str]],
+              current: dict[str, str | int] | None=None) -> None:
+    if current is None:
+        current = dict(molecule='e', transforms=0)
+
+    if current['molecule'] == molecule:
+        return current[transforms]
+
+    options: set[str] = set()
+    while len(current['molecule']) <= len(molecule):
+        generate(current['molecule'], replacements, options)
+
+        suboptions = set(options)
+        for option in options:
+            generate(option, replacements, suboptions)
+
+
+def main(verbose: bool=True) -> None:
     mydir = Path(__file__).parent
     replacements: dict[str, str] = {}
     molecule = ''
 
     with open(mydir/INFILE) as infile:
         for line in infile:
-            res = parse(line.strip(), replacements, molecule)
-            if res:
+            if res := parse(line.strip(), replacements, molecule):
                 molecule = res
 
     if verbose:
@@ -76,13 +93,21 @@ def main(verbose: bool=False) -> None:
         print('\nMolecule:')
         pprint(molecule)
 
-    generated: set[str] = set()
-    res = generate(molecule, replacements, generated)
+    # Part 1:
+    # generated: set[str] = set()
+    # generate(molecule, replacements, generated)
+
+    # Part 2:
+    fabrications: set[list[str]] = set()
+    res = fabricate(molecule, replacements, fabrications)
 
     if verbose:
-        print(f'\nGenerated molecules:')
-        pprint(generated)
-    print(f'\nFound {len(generated)} distinct molecules')
+        # print(f'\nGenerated molecules:')
+        # pprint(generated)
+        print(f'\nFabricate molecules:')
+        pprint(fabrications)
+    # print(f'\nFound {len(generated)} distinct molecules')
+    print(f'\nFound {res} distinct molecules')
 
 
 if __name__ == '__main__':
