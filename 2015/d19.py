@@ -12,19 +12,21 @@ Medicine for Rudolph
 '''
 
 
-# INFILE = 'd19.txt'
+INFILE = 'd19.txt'
 # INFILE = 'd19t1.txt'
 # INFILE = 'd19t2.txt'
-INFILE = 'd19t1a.txt'
+# INFILE = 'd19t1a.txt'
+# INFILE = 'd19t2a.txt'
 
 
 # Libraries:
+from copy import copy
 from pathlib import Path
 from pprint import pprint
 import re
 
 
-def parse(line: str, replacements: dict[str, str], molecule) -> None | str:
+def parse(line: str, replacements: dict[str, list[str]], molecule) -> None | str:
     match line.split():
         case [mol1, '=>', mol2]:
             if mol1 not in replacements:
@@ -50,9 +52,9 @@ def parse(line: str, replacements: dict[str, str], molecule) -> None | str:
     return None
 
 
-def generate(molecule: str, replacements: dict[str, str], generated: set[str]) -> None:
+def generate(molecule: str, replacements: dict[str, list[str]], generated: set[str]) -> None:
     # for index, element in enumerate(molecule):
-    for match_obj in re.finditer(r'[A-Z][a-z]?', molecule):
+    for match_obj in re.finditer(r'[A-Z][a-z]?|e', molecule):
         element = match_obj.group()
         if element in replacements:
             for replacement in replacements[element]:
@@ -60,26 +62,27 @@ def generate(molecule: str, replacements: dict[str, str], generated: set[str]) -
                               molecule[match_obj.span()[1]:])
 
 
-def fabricate(molecule: str, replacements: dict[str, str], fabrications: set[list[str]],
-              current: dict[str, str | int] | None=None) -> None:
-    if current is None:
-        current = dict(molecule='e', transforms=0)
+def fabricate(molecule: str, replacements: dict[str, list[str]], fabrications: set[str],
+              verbose: bool=True) -> int:
+    rounds = 0
+    seed = {'e'}
+    current: set[str] = set()
 
-    if current['molecule'] == molecule:
-        return current[transforms]
+    while molecule not in fabrications:
+        targets = copy(current) if current else copy(seed)
+        for target in targets:
+            generate(target, replacements, current)
+        rounds += 1
+        if verbose:
+            print(f'Round {rounds}')
+        fabrications |= current
 
-    options: set[str] = set()
-    while len(current['molecule']) <= len(molecule):
-        generate(current['molecule'], replacements, options)
-
-        suboptions = set(options)
-        for option in options:
-            generate(option, replacements, suboptions)
+    return rounds
 
 
-def main(verbose: bool=True) -> None:
+def main(verbose: bool=False) -> None:
     mydir = Path(__file__).parent
-    replacements: dict[str, str] = {}
+    replacements: dict[str, list[str]] = {}
     molecule = ''
 
     with open(mydir/INFILE) as infile:
@@ -98,16 +101,16 @@ def main(verbose: bool=True) -> None:
     # generate(molecule, replacements, generated)
 
     # Part 2:
-    fabrications: set[list[str]] = set()
-    res = fabricate(molecule, replacements, fabrications)
+    fabrications: set[str] = set()
+    rounds = fabricate(molecule, replacements, fabrications)
 
     if verbose:
         # print(f'\nGenerated molecules:')
         # pprint(generated)
         print(f'\nFabricate molecules:')
         pprint(fabrications)
-    # print(f'\nFound {len(generated)} distinct molecules')
-    print(f'\nFound {res} distinct molecules')
+    # print(f'\nFound {len(generated)} distinct molecules.')
+    print(f'\nFabricated {molecule} in {rounds} steps.')
 
 
 if __name__ == '__main__':
