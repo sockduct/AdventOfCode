@@ -62,6 +62,27 @@ def generate(molecule: str, replacements: dict[str, list[str]], generated: set[s
                               molecule[match_obj.span()[1]:])
 
 
+def revert(molecule: str, inverses: dict[str, str]) -> int:
+    target = 'e'
+    new_molecule = molecule
+    rounds = 0
+
+    while new_molecule != target:
+        # Start with most complex molecules first:
+        options = sorted(inverses.keys(), key=len, reverse=True)
+
+        for option in options:
+            size = len(option)
+            start = 0
+            while (index := new_molecule.find(option, start)) >= 0:
+                new_molecule = (new_molecule[:index] + inverses[option] +
+                                new_molecule[index + size:])
+                start = index + size
+                rounds += 1
+
+    return rounds
+
+
 def fabricate(molecule: str, replacements: dict[str, list[str]], fabrications: set[str],
               verbose: bool=True) -> int:
     rounds = 0
@@ -73,14 +94,14 @@ def fabricate(molecule: str, replacements: dict[str, list[str]], fabrications: s
         for target in targets:
             generate(target, replacements, current)
         rounds += 1
-        if verbose:
-            print(f'Round {rounds}')
         fabrications |= current
+        if verbose:
+            print(f'Round {rounds}, number of fabrications:  {len(fabrications):,}')
 
     return rounds
 
 
-def main(verbose: bool=False) -> None:
+def main(verbose: bool=True) -> None:
     mydir = Path(__file__).parent
     replacements: dict[str, list[str]] = {}
     molecule = ''
@@ -100,17 +121,31 @@ def main(verbose: bool=False) -> None:
     # generated: set[str] = set()
     # generate(molecule, replacements, generated)
 
-    # Part 2:
-    fabrications: set[str] = set()
-    rounds = fabricate(molecule, replacements, fabrications)
+    # Reverse the direction in replacements:
+    inverses: dict[str, str] = {}
+    for key, values in replacements.items():
+        for value in values:
+            inverses[value] = key
 
     if verbose:
+        print(f'\nInverses ({len(inverses)}):')
+        pprint(inverses)
+
+    # Part 2:
+    # Doesn't work - way too slow, go in reverse direction
+    # fabrications: set[str] = set()
+    # rounds = fabricate(molecule, replacements, fabrications)
+
+    rounds = revert(molecule, inverses)
+
+    # if verbose:
         # print(f'\nGenerated molecules:')
         # pprint(generated)
-        print(f'\nFabricate molecules:')
-        pprint(fabrications)
+        # print(f'\nFabricated molecules:')
+        # pprint(fabrications)
     # print(f'\nFound {len(generated)} distinct molecules.')
-    print(f'\nFabricated {molecule} in {rounds} steps.')
+    # print(f'\nFabricated {molecule} in {rounds} steps.')
+    print(f'\nFrom {molecule} to e in {rounds} steps.')
 
 
 if __name__ == '__main__':
