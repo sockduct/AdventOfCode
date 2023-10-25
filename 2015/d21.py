@@ -4,7 +4,7 @@
 '''
 RPG Simulator
 * Battle between player and boss
-* Player goes first - attacking, then boss attacks
+* Player goes first - attacking, then boss attacks; repeat
 * Damage per attack = attacker's damage score - defender's armor score but
   always at least 1
 * Whoever gets to 0 hit points first loses
@@ -46,28 +46,24 @@ INFILE = 'd21.txt'
 
 
 # Libraries:
-from enum import Enum
 from typing import NamedTuple
 from dataclasses import dataclass
+from itertools import product
 from pathlib import Path
 from pprint import pprint
 
 
 # Types:
-class Armament(Enum):
-    offense = 1
-    defense = 2
-
-
 @dataclass
 class Character:
+    name: str
     hp: int = 0
     damage: int = 0
     armor: int = 0
 
 
 class Item(NamedTuple):
-    type: Armament
+    offense: bool = True
     cost: int = 0
     damage: int = 0
     armor: int = 0
@@ -85,40 +81,87 @@ def parse(line: str, boss: Character) -> None:
             raise ValueError(f'Unexpected Value:  {line.strip()}')
 
 
-def main() -> None:
+def combat(player: Character, boss: Character) -> Character:
+    while player.hp > 0 and boss.hp > 0:
+        # Player attacks:
+        boss.hp -= max(player.damage - boss.armor, 1)
+
+        # Boss attacks:
+        player.hp -= max(boss.damage - player.armor, 1)
+
+    return boss if player.hp <= 0 else player
+
+
+def main(verbose: bool=True) -> None:
     cwd = Path(__file__).parent
-    boss = Character()
+    boss = Character(name='boss')
     with open(cwd/INFILE) as infile:
         for line in infile:
             parse(line, boss)
 
-    player = Character(hp=100)
+    player = Character(name='player', hp=100)
 
-    store = {
-        dagger=Item(type=offense, cost=8, damage=4),
-        shortsword=Item(type=offense, cost=10, damage=5),
-        warhammer=Item(type=offense, cost=25, damage=6),
-        longsword=Item(type=offense, cost=40, damage=7),
-        greataxe=Item(type=offense, cost=74, damage=8),
-        leather=Item(type=defense, cost=13, armor=1),
-        chainmail=Item(type=defense, cost=31, armor=2),
-        splintmail=Item(type=defense, cost=53, armor=3),
-        bandedmail=Item(type=defense, cost=75, armor=4),
-        platemail=Item(type=defense, cost=102, armor=5),
-        damage_ring1=Item(type=offense, cost=25, damage=1),
-        damage_ring2=Item(type=offense, cost=50, damage=2),
-        damage_ring3=Item(type=offense, cost=100, damage=3),
-        defense_ring1=Item(type=defense, cost=20, armor=1),
-        defense_ring2=Item(type=defense, cost=40, armor=2),
-        defense_ring3=Item(type=defense, cost=80, armor=3)
+    weapons = {
+        'dagger': Item(cost=8, damage=4),
+        'shortsword': Item(cost=10, damage=5),
+        'warhammer': Item(cost=25, damage=6),
+        'longsword': Item(cost=40, damage=7),
+        'greataxe': Item(cost=74, damage=8),
     }
 
-    print('Boss:')
-    pprint(boss)
-    print('\nPlayer:')
-    pprint(player)
-    print('\nStore:')
-    pprint(store)
+    armor = {
+        'leather': Item(offense=False, cost=13, armor=1),
+        'chainmail': Item(offense=False, cost=31, armor=2),
+        'splintmail': Item(offense=False, cost=53, armor=3),
+        'bandedmail': Item(offense=False, cost=75, armor=4),
+        'platemail': Item(offense=False, cost=102, armor=5),
+    }
+
+    rings = {
+        'damage_ring1': Item(cost=25, damage=1),
+        'damage_ring2': Item(cost=50, damage=2),
+        'damage_ring3': Item(cost=100, damage=3),
+        'defense_ring1': Item(offense=False, cost=20, armor=1),
+        'defense_ring2': Item(offense=False, cost=40, armor=2),
+        'defense_ring3': Item(offense=False, cost=80, armor=3)
+    }
+
+    store = weapons | armor | rings
+
+    # Slightly inefficient as really want rings and remaining rings but not
+    # sure how to do that.  Instead, just discard results with 2 of same ring:
+    combinations = product(weapons, armor, rings, rings)
+
+    options = {}
+    for combination in combinations:
+        # Discard duplicate rings - illegal combination:
+        if combination[2] == combination[3]:
+            continue
+
+        cost = sum(store[item].cost for item in combination)
+        offense = sum(store[item].damage for item in combination)
+        defense = sum(store[item].armor for item in combination)
+
+        # Conditions:
+        ### player values must be >= what?
+        ### boss.damage + boss.armor???
+
+        # Duplicates - doesn't work:
+        # options[(cost, offense, defense)] = combination
+        options[combination] = (cost, offense, defense)
+
+    if verbose:
+        print('Boss:')
+        pprint(boss)
+        print('\nPlayer:')
+        pprint(player)
+        print('\nStore:')
+        pprint(store)
+
+    winner = combat(player, boss)
+
+    print('Winner:')
+    pprint(winner)
 
 
 if __name__ == '__main__':
