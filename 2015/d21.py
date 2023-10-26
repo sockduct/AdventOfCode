@@ -86,10 +86,50 @@ def combat(player: Character, boss: Character) -> Character:
         # Player attacks:
         boss.hp -= max(player.damage - boss.armor, 1)
 
+        if boss.hp <= 0:
+            break
+
         # Boss attacks:
         player.hp -= max(boss.damage - player.armor, 1)
 
     return boss if player.hp <= 0 else player
+
+
+def get_costs(weapons: dict[str, Item], armor: dict[str, Item], rings: dict[str, Item],
+              boss: Character, verbose: bool=False) -> list[tuple[int, int, int]]:
+    store = weapons | armor | rings
+    no_rings = ('none1', 'none2')
+    options = {}
+
+    # Slightly inefficient as really want rings and remaining rings but not
+    # sure how to do that.  Instead, just discard results with 2 of same ring:
+    combinations = product(weapons, armor, rings, rings)
+
+    for combination in combinations:
+        # Discard duplicate rings, only allow no rings combination of 'none1'
+        # and 'none2', only allow the 2nd ring to be none and only 'none2'
+        if (combination[2] == combination[3] or
+                (combination[2] == 'none2' and combination[3] == 'none1') or
+                (combination[2] in no_rings and combination[3] not in no_rings) or
+                (combination[2] not in no_rings and combination[3] == 'none1')
+            ):
+            continue
+
+        cost = sum(store[item].cost for item in combination)
+        offense = sum(store[item].damage for item in combination)
+        defense = sum(store[item].armor for item in combination)
+
+        # Conditions:
+        # player values must be >= boss.damage + boss.armor
+        if offense + defense >= boss.damage + boss.armor:
+            # Duplicates - doesn't work:
+            # options[(cost, offense, defense)] = combination
+            options[combination] = (cost, offense, defense)
+
+    if verbose:
+        pprint(sorted(options.items(), key=lambda i: i[1]))
+
+    return sorted(options.values())
 
 
 def main(verbose: bool=True) -> None:
@@ -115,53 +155,36 @@ def main(verbose: bool=True) -> None:
         'splintmail': Item(offense=False, cost=53, armor=3),
         'bandedmail': Item(offense=False, cost=75, armor=4),
         'platemail': Item(offense=False, cost=102, armor=5),
+        'none': Item(offense=False),
     }
 
     rings = {
         'damage_ring1': Item(cost=25, damage=1),
         'damage_ring2': Item(cost=50, damage=2),
         'damage_ring3': Item(cost=100, damage=3),
+        'none1': Item(offense=True),
         'defense_ring1': Item(offense=False, cost=20, armor=1),
         'defense_ring2': Item(offense=False, cost=40, armor=2),
-        'defense_ring3': Item(offense=False, cost=80, armor=3)
+        'defense_ring3': Item(offense=False, cost=80, armor=3),
+        'none2': Item(offense=False),
     }
 
-    store = weapons | armor | rings
-
-    # Slightly inefficient as really want rings and remaining rings but not
-    # sure how to do that.  Instead, just discard results with 2 of same ring:
-    combinations = product(weapons, armor, rings, rings)
-
-    options = {}
-    for combination in combinations:
-        # Discard duplicate rings - illegal combination:
-        if combination[2] == combination[3]:
-            continue
-
-        cost = sum(store[item].cost for item in combination)
-        offense = sum(store[item].damage for item in combination)
-        defense = sum(store[item].armor for item in combination)
-
-        # Conditions:
-        ### player values must be >= what?
-        ### boss.damage + boss.armor???
-
-        # Duplicates - doesn't work:
-        # options[(cost, offense, defense)] = combination
-        options[combination] = (cost, offense, defense)
+    costs = get_costs(weapons, armor, rings, boss)
+    cheapest, player.damage, player.armor = costs[0]
 
     if verbose:
         print('Boss:')
         pprint(boss)
         print('\nPlayer:')
         pprint(player)
-        print('\nStore:')
-        pprint(store)
+        # print('\nStore:')
+        # pprint(store)
 
     winner = combat(player, boss)
 
-    print('Winner:')
+    print('\nWinner:')
     pprint(winner)
+    print(f'\nPlayer spent {cheapest} gold.')
 
 
 if __name__ == '__main__':
