@@ -62,6 +62,8 @@ class Character:
     armor: int = 0
 
 
+# Note:  Using NamedTuple here because immutable
+#        Could also use dataclass with frozen=True
 class Item(NamedTuple):
     offense: bool = True
     cost: int = 0
