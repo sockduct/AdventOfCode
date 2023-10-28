@@ -96,7 +96,7 @@ def combat(player: Character, boss: Character) -> Character:
 
 
 def get_costs(weapons: dict[str, Item], armor: dict[str, Item], rings: dict[str, Item],
-              boss: Character, verbose: bool=False) -> list[tuple[int, int, int]]:
+              boss: Character, verbose: bool=False) -> list[tuple[int, int, int, bool]]:
     store = weapons | armor | rings
     no_rings = ('none1', 'none2')
     options = {}
@@ -111,7 +111,8 @@ def get_costs(weapons: dict[str, Item], armor: dict[str, Item], rings: dict[str,
         if (combination[2] == combination[3] or
                 (combination[2] == 'none2' and combination[3] == 'none1') or
                 (combination[2] in no_rings and combination[3] not in no_rings) or
-                (combination[2] not in no_rings and combination[3] == 'none1')
+                (combination[2] not in no_rings and combination[3] == 'none1') or
+                (combination[0], combination[1], combination[3], combination[2]) in options
             ):
             continue
 
@@ -121,15 +122,29 @@ def get_costs(weapons: dict[str, Item], armor: dict[str, Item], rings: dict[str,
 
         # Conditions:
         # player values must be >= boss.damage + boss.armor
-        if offense + defense >= boss.damage + boss.armor:
-            # Duplicates - doesn't work:
-            # options[(cost, offense, defense)] = combination
-            options[combination] = (cost, offense, defense)
+        win = offense + defense >= boss.damage + boss.armor
+        # Duplicates - doesn't work:
+        # options[(cost, offense, defense)] = combination
+        options[combination] = (cost, offense, defense, win)
 
     if verbose:
         pprint(sorted(options.items(), key=lambda i: i[1]))
+        print()
 
     return sorted(options.values())
+
+
+def outcome(boss: Character, player: Character, cost: int, verbose: bool=True):
+    if verbose:
+        print(f'Boss:  {boss}')
+        print(f'Player:  {player}')
+        # print('\nStore:')
+        # pprint(store)
+
+    winner = combat(player, boss)
+
+    print(f'Winner:  {winner}')
+    print(f'Player spent {cost} gold.')
 
 
 def main(verbose: bool=True) -> None:
@@ -170,21 +185,23 @@ def main(verbose: bool=True) -> None:
     }
 
     costs = get_costs(weapons, armor, rings, boss)
-    cheapest, player.damage, player.armor = costs[0]
+    winning_costs = [cost for cost in costs if cost[-1]]
+    losing_costs = [cost for cost in costs if not cost[-1]]
 
-    if verbose:
-        print('Boss:')
-        pprint(boss)
-        print('\nPlayer:')
-        pprint(player)
-        # print('\nStore:')
-        # pprint(store)
+    cost, player.damage, player.armor, win = winning_costs[0]
+    print('Calculating minimum spend for player to win...')
 
-    winner = combat(player, boss)
+    # Save hp:
+    boss_hp = boss.hp
+    player_hp = player.hp
+    outcome(boss, player, cost)
+    # Restore hp:
+    boss.hp = boss_hp
+    player.hp = player_hp
 
-    print('\nWinner:')
-    pprint(winner)
-    print(f'\nPlayer spent {cheapest} gold.')
+    print('\nCalculating maximum spend for player to still lose...')
+    cost, player.damage, player.armor, win = losing_costs[-1]
+    outcome(boss, player, cost)
 
 
 if __name__ == '__main__':
