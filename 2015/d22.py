@@ -85,39 +85,69 @@ def parse(line: str, boss: Character) -> None:
             raise ValueError(f'Unexpected Value:  {line.strip()}')
 
 
-def process(effects: dict[int, Effect], boss: Character, player: Character,
+def process(effects: dict[str, Effect], boss: Character, player: Character,
             verbose: bool=True) -> None:
-    effectq: deque[tuple[int, Effect]] = deque()
+    effectq: deque[Effect] = deque()
 
-    effectq.extend(effects.items())
+    effectq.extend(effects.values())
+
+    '''
+    if verbose:
+        print('Current effects:')
+        pprint(effects)
+    '''
 
     while effectq:
-        index, effect = effectq.pop()
-
-        if verbose:
-            print(f'Processing effect {effect}...')
+        effect = effectq.pop()
 
         boss.hp -= effect.damage
         player.mana += effect.mana
         effect.turns -= 1
-        player.armor = effect.armor if effect.temp and effect.armor >= 1 else 0
+
+        if effect.temp and effect.armor >= 1:
+            player.armor = effect.armor if effect.turns >= 1 else 0
+
+        if verbose:
+            print(f'Processed effect {effect.name} - ', end='')
+            if effect.turns >= 1:
+                print(f'it will persist for {effect.turns} more turns.')
+            else:
+                print('effect expired.')
 
         if effect.turns == 0:
-            effects.pop(index)
+            effects.pop(effect.name)
 
 
-def combat(boss: Character, player: Character, casts: tuple[str, ...],
+def announce(cround: int, boss: Character, player: Character, current: Character) -> None:
+    if current is player:
+        print(f'\nRound {cround}')
+        print('--Player Turn--')
+    else:
+        print('--Boss Turn--')
+
+    print(f'Player:  {player}')
+    print(f'Boss:  {boss}')
+
+
+def combat(boss: Character, player: Character, casts: tuple[str, ...]=None,
            verbose: bool=True) -> tuple[Character, int]:
-    turn = 0
+    cround = 0
     mana_total = 0
-    effects: dict[int, Effect] = {}
+    effects: dict[str, Effect] = {}
 
     while player.hp > 0 and boss.hp > 0:
-        turn += 1
+        cround += 1
 
-        # Player attacks:
-        spell_name = casts[turn - 1]
-        spell = spells[spell_name]
+        # Player turn::
+        if verbose:
+            announce(cround, boss, player, player)
+
+        if casts:
+            spell_name = casts[cround - 1]
+            spell = spells[spell_name]
+        else:
+            # Need to come up with spell strategy!!!
+            ...
 
         mana_total += spell.cost
         player.mana -= spell.cost
@@ -125,49 +155,49 @@ def combat(boss: Character, player: Character, casts: tuple[str, ...],
             raise ManaOut(f'Player has insufficient mana to cast {spell_name} ({player.mana})'
                           ' - game over!')
 
-        if verbose:
-            print(f'\nTurn {turn}')
-
         if effects:
             process(effects, boss, player)
         elif verbose:
-            print(f'No effects present for Player turn {turn}.')
+            print(f'No effects present for Player turn, round {cround}.')
 
         if verbose:
             print(f'Player casts {spell_name}...')
 
         if spell.effect:
-            index = len(effects)
-            effects[index] = Effect(name=spell_name, turns=spell.turns, temp=spell.temp,
-                                    damage=spell.damage, armor=spell.armor, mana=spell.mana)
+            effects[spell_name] = Effect(name=spell_name, turns=spell.turns, temp=spell.temp,
+                                         damage=spell.damage, armor=spell.armor, mana=spell.mana)
         else:
             boss.hp -= spell.damage
             player.hp += spell.heal
 
         # Boss turn:
+        if verbose:
+            announce(cround, boss, player, boss)
+
         if effects:
             process(effects, boss, player)
         elif verbose:
-            print(f'No effects present for Boss turn {turn}.')
+            print(f'No effects present for Boss turn, round {cround}.')
 
         if boss.hp <= 0:
             break
-        elif verbose:
-            print('Boss attacks...')
 
-        player.hp -= max(boss.damage - player.armor, 1)
+        player.hp -= (boss_damage := max(boss.damage - player.armor, 1))
 
-        # End of turn:
         if verbose:
-            print(f'End of turn {turn}\nPlayer:  {player}\nBoss:  {boss}')
+            print(f'Boss attacks for {boss_damage}')
 
     winner = boss if player.hp <= 0 else player
+
+    if verbose:
+        print('\nFinal stats:')
+        print(f'Player:  {player}')
+        print(f'Boss:  {boss}')
 
     return winner, mana_total
 
 
-def main(verbose: bool=True) -> None:
-    '''
+def main(verbose: bool=False) -> None:
     cwd = Path(__file__).parent
     boss = Character(name='boss')
     with open(cwd/INFILE) as infile:
@@ -175,12 +205,15 @@ def main(verbose: bool=True) -> None:
             parse(line, boss)
 
     player = Character(name='player', hp=50, mana=500)
-    '''
 
+    '''
     # Testing:
     player = Character(name='player', hp=10, mana=250)
-    boss = Character(name='boss', hp=13, damage=8)
-    casts = ('poison', 'missile')
+    # boss = Character(name='boss', hp=13, damage=8)
+    boss = Character(name='boss', hp=14, damage=8)
+    # casts = ('poison', 'missile')
+    casts = ('recharge', 'shield', 'drain', 'poison', 'missile')
+    '''
 
     if verbose:
         print(f'Player:  {player}')
@@ -189,12 +222,11 @@ def main(verbose: bool=True) -> None:
         pprint(spells)
 
     try:
-        winner, mana_total = combat(boss, player, casts)
+        # winner, mana_total = combat(boss, player, casts)
+        winner, mana_total = combat(boss, player)
     except ManaOut as err:
         print(err)
 
-    if verbose:
-        print(f'\nPlayer:  {player}\nBoss:  {boss}')
     print(f'\nWinner:  {winner}')
     print(f'Player expended {mana_total} mana.')
 
