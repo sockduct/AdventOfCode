@@ -41,6 +41,7 @@ class Character:
 
 # Using NamedTuple because immutable:
 class Spell(NamedTuple):
+    name: str
     effect: bool = False
     temp: bool = False
     turns: int = 0
@@ -67,11 +68,11 @@ class ManaOut(BaseException):
 
 # Globals:
 spells = {
-    'missile': Spell(cost=53, damage=4),
-    'drain': Spell(cost=73, damage=2, heal=2),
-    'shield': Spell(cost=113, effect=True, turns=6, temp=True, armor=7),
-    'poison': Spell(cost=173, effect=True, turns=6, damage=3),
-    'recharge': Spell(cost=229, effect=True, turns=5, mana=101),
+    'missile': Spell(name='missile', cost=53, damage=4),
+    'drain': Spell(name='drain', cost=73, damage=2, heal=2),
+    'shield': Spell(name='shield', cost=113, effect=True, turns=6, temp=True, armor=7),
+    'poison': Spell(name='poison', cost=173, effect=True, turns=6, damage=3),
+    'recharge': Spell(name='recharge', cost=229, effect=True, turns=5, mana=101),
 }
 
 
@@ -129,7 +130,46 @@ def announce(cround: int, boss: Character, player: Character, current: Character
     print(f'Boss:  {boss}')
 
 
-def combat(boss: Character, player: Character, casts: tuple[str, ...]=None,
+def combat_turn(boss: Character, player: Character, current: Character, cround: int,
+                effects: dict[str, Effect], spell: Spell|None=None, verbose: bool=True) -> None:
+    if effects:
+        process(effects, boss, player)
+    elif verbose:
+        print(f'No effects present for Player turn, round {cround}.')
+
+    if current is player:
+        if spell:
+            if verbose:
+                print(f'Player casts {spell.name}...')
+
+            if spell.effect:
+                effects[spell.name] = Effect(name=spell.name, turns=spell.turns, temp=spell.temp,
+                                            damage=spell.damage, armor=spell.armor, mana=spell.mana)
+            else:
+                boss.hp -= spell.damage
+                player.hp += spell.heal
+        else:
+            raise ValueError('Attempt to execute player turn without passing spell!')
+
+
+def get_spell(player: Character, boss: Character) -> Spell:
+    '''
+    Calculate the least amount of mana player can spend and still win the fight.
+    Notes:
+        * Do not include mana recharge effects as "spending" negative mana.
+        * Attack via spells which cost mana - if don't have enough mana, player loses
+
+    Use player hp, boss hp, and boss damage for calculations.
+    Intertwined tasks:
+        1) Calculate spells to kill boss before he kills player
+        2) Ensure have sufficient mana for spells
+        3) If insufficient mana must factor in using recharge
+    '''
+    # Start with examples - this routine should come up with same spells.
+    ...
+
+
+def combat(boss: Character, player: Character, casts: tuple[str, ...]|None=None,
            verbose: bool=True) -> tuple[Character, int]:
     cround = 0
     mana_total = 0
@@ -142,42 +182,23 @@ def combat(boss: Character, player: Character, casts: tuple[str, ...]=None,
         if verbose:
             announce(cround, boss, player, player)
 
-        if casts:
-            spell_name = casts[cround - 1]
-            spell = spells[spell_name]
-        else:
-            # Need to come up with spell strategy!!!
-            ...
+        spell = spells[casts[cround - 1]] if casts else get_spell(player, boss)
+        if not spell:
+            raise ValueError('Attempted combat round without supplying player spell!')
 
         mana_total += spell.cost
         player.mana -= spell.cost
         if player.mana < 0:
-            raise ManaOut(f'Player has insufficient mana to cast {spell_name} ({player.mana})'
+            raise ManaOut(f'Player has insufficient mana to cast {spell.name} ({player.mana})'
                           ' - game over!')
 
-        if effects:
-            process(effects, boss, player)
-        elif verbose:
-            print(f'No effects present for Player turn, round {cround}.')
-
-        if verbose:
-            print(f'Player casts {spell_name}...')
-
-        if spell.effect:
-            effects[spell_name] = Effect(name=spell_name, turns=spell.turns, temp=spell.temp,
-                                         damage=spell.damage, armor=spell.armor, mana=spell.mana)
-        else:
-            boss.hp -= spell.damage
-            player.hp += spell.heal
+        combat_turn(boss, player, player, cround, effects, spell)
 
         # Boss turn:
         if verbose:
             announce(cround, boss, player, boss)
 
-        if effects:
-            process(effects, boss, player)
-        elif verbose:
-            print(f'No effects present for Boss turn, round {cround}.')
+        combat_turn(boss, player, boss, cround, effects)
 
         if boss.hp <= 0:
             break
@@ -197,7 +218,8 @@ def combat(boss: Character, player: Character, casts: tuple[str, ...]=None,
     return winner, mana_total
 
 
-def main(verbose: bool=False) -> None:
+def main(verbose: bool=True) -> None:
+    '''
     cwd = Path(__file__).parent
     boss = Character(name='boss')
     with open(cwd/INFILE) as infile:
@@ -205,15 +227,14 @@ def main(verbose: bool=False) -> None:
             parse(line, boss)
 
     player = Character(name='player', hp=50, mana=500)
-
     '''
+
     # Testing:
     player = Character(name='player', hp=10, mana=250)
     # boss = Character(name='boss', hp=13, damage=8)
     boss = Character(name='boss', hp=14, damage=8)
     # casts = ('poison', 'missile')
     casts = ('recharge', 'shield', 'drain', 'poison', 'missile')
-    '''
 
     if verbose:
         print(f'Player:  {player}')
@@ -222,8 +243,8 @@ def main(verbose: bool=False) -> None:
         pprint(spells)
 
     try:
-        # winner, mana_total = combat(boss, player, casts)
-        winner, mana_total = combat(boss, player)
+        winner, mana_total = combat(boss, player, casts)
+        # winner, mana_total = combat(boss, player)
     except ManaOut as err:
         print(err)
 
