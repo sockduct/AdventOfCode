@@ -24,6 +24,7 @@ INFILE = 'd22.txt'
 # Libraries:
 from collections import deque
 from dataclasses import dataclass
+import math
 from pathlib import Path
 from pprint import pprint
 from typing import NamedTuple
@@ -152,24 +153,43 @@ def combat_turn(boss: Character, player: Character, current: Character, cround: 
             raise ValueError('Attempt to execute player turn without passing spell!')
 
 
-def get_spell(player: Character, boss: Character) -> Spell:
+def attack(player: Character, boss: Character) -> bool:
+    damage = 0
+
+    crounds = math.ceil(player.hp/boss.damage)
+    effect_turns = 2 * crounds - 1
+
+    spells['poison'].damage
+
+
+def get_spells(player: Character, boss: Character) -> tuple[str]:
     '''
-    Calculate the least amount of mana player can spend and still win the fight.
+    Come up with list of spells for player to cast
+
+    Goal:  Calculate the least amount of mana player can spend and still win the
+           fight.
     Notes:
         * Do not include mana recharge effects as "spending" negative mana.
-        * Attack via spells which cost mana - if don't have enough mana, player loses
+        * Attack via spells which cost mana - if don't have enough mana, player
+          loses
 
     Use player hp, boss hp, and boss damage for calculations.
     Intertwined tasks:
         1) Calculate spells to kill boss before he kills player
         2) Ensure have sufficient mana for spells
         3) If insufficient mana must factor in using recharge
+
+    Initial strategy:
+    * Attack until either run out of mana or die - win?
+    * No, then...
     '''
     # Start with examples - this routine should come up with same spells.
-    ...
+    works = attack(player, boss)
+
+    # Need to return tuple of spells for player to cast...
 
 
-def combat(boss: Character, player: Character, casts: tuple[str, ...]|None=None,
+def combat(boss: Character, player: Character, casts: tuple[str, ...],
            verbose: bool=True) -> tuple[Character, int]:
     cround = 0
     mana_total = 0
@@ -182,7 +202,7 @@ def combat(boss: Character, player: Character, casts: tuple[str, ...]|None=None,
         if verbose:
             announce(cround, boss, player, player)
 
-        spell = spells[casts[cround - 1]] if casts else get_spell(player, boss)
+        spell = spells[casts[cround - 1]]
         if not spell:
             raise ValueError('Attempted combat round without supplying player spell!')
 
@@ -234,7 +254,7 @@ def main(verbose: bool=True) -> None:
     # boss = Character(name='boss', hp=13, damage=8)
     boss = Character(name='boss', hp=14, damage=8)
     # casts = ('poison', 'missile')
-    casts = ('recharge', 'shield', 'drain', 'poison', 'missile')
+    # casts = ('recharge', 'shield', 'drain', 'poison', 'missile')
 
     if verbose:
         print(f'Player:  {player}')
@@ -243,8 +263,7 @@ def main(verbose: bool=True) -> None:
         pprint(spells)
 
     try:
-        winner, mana_total = combat(boss, player, casts)
-        # winner, mana_total = combat(boss, player)
+        winner, mana_total = combat(boss, player)
     except ManaOut as err:
         print(err)
 
