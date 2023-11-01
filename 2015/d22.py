@@ -134,7 +134,7 @@ def announce(cround: int, boss: Character, player: Character, current: Character
 def combat_turn(boss: Character, player: Character, current: Character, cround: int,
                 effects: dict[str, Effect], spell: Spell|None=None, verbose: bool=True) -> None:
     if effects:
-        process(effects, boss, player)
+        process(effects, boss, player, verbose=verbose)
     elif verbose:
         print(f'No effects present for Player turn, round {cround}.')
 
@@ -153,16 +153,61 @@ def combat_turn(boss: Character, player: Character, current: Character, cround: 
             raise ValueError('Attempt to execute player turn without passing spell!')
 
 
-def attack(player: Character, boss: Character) -> bool:
-    damage = 0
+def simulate(player: Character, boss: Character, strategy: str) -> tuple[bool, str, list[str]]:
+    '''
+    Simulate combat.
+    Return status:
+    * True = Player won, empty string
+    * False = Player lost, string in ('mana', 'hp) - what player ran out of
+    '''
+    cround = 0
+    test_player = Character(name=player.name, hp=player.hp, mana=player.mana)
+    test_boss = Character(name=boss.name, hp=boss.hp, damage=boss.damage)
+    effects: dict[str, Effect] = {}
+    casts = []
 
-    crounds = math.ceil(player.hp/boss.damage)
-    effect_turns = 2 * crounds - 1
+    while True:
+        cround += 1
+        if strategy == 'attack':
+            if 'poison' not in effects:
+                spell = spells['poison']
+            else:
+                spell = spells['missile']
+        elif strategy == 'defend':
+            if 'shield' not in effects:
+                spell = spells['shield']
+            elif 'poison' not in effects:
+                spell = spells['poison']
+            else:
+                spell = spells['missile']
+        elif strategy == 'adaptive':
+            # When do we need to call recharge?
+            # * Find mana threshold
+            # When do we need to call drain?
+            # * Find hp threshold
+            ...
+        else:
+            raise RuntimeError('Need another strategy!!!')
 
-    spells['poison'].damage
+        casts.append(spell.name)
+
+        test_player.mana -= spell.cost
+        if player.mana < 0:
+            return False, 'mana', casts
+
+        combat_turn(test_boss, test_player, test_player, cround, effects, spell, verbose=False)
+        combat_turn(test_boss, test_player, test_boss, cround, effects, verbose=False)
+
+        if test_boss.hp <= 0:
+            return True, '', casts
+
+        test_player.hp -= max(boss.damage - player.armor, 1)
+
+        if test_player.hp <= 0:
+            return False, 'hp', casts
 
 
-def get_spells(player: Character, boss: Character) -> tuple[str]:
+def get_spells(player: Character, boss: Character, verbose: bool=True) -> tuple[str, ...]:
     '''
     Come up with list of spells for player to cast
 
@@ -184,9 +229,24 @@ def get_spells(player: Character, boss: Character) -> tuple[str]:
     * No, then...
     '''
     # Start with examples - this routine should come up with same spells.
-    works = attack(player, boss)
+    strategies = ('attack', 'defend', 'adaptive')
+    depleted = False
 
-    # Need to return tuple of spells for player to cast...
+    for strategy in strategies:
+        if depleted and strategy != 'adaptive':
+            continue
+
+        won, reason, casts = simulate(player, boss, strategy)
+
+        if won:
+            return tuple(casts)
+        elif reason == 'mana':
+            depleted = True
+
+        if verbose:
+            print(f'Player lost - ran out of {reason} using {strategy} strategy.')
+
+    raise RuntimeError('Need a different strategy!!!')
 
 
 def combat(boss: Character, player: Character, casts: tuple[str, ...],
@@ -255,6 +315,7 @@ def main(verbose: bool=True) -> None:
     boss = Character(name='boss', hp=14, damage=8)
     # casts = ('poison', 'missile')
     # casts = ('recharge', 'shield', 'drain', 'poison', 'missile')
+    casts = get_spells(player, boss)
 
     if verbose:
         print(f'Player:  {player}')
@@ -263,7 +324,7 @@ def main(verbose: bool=True) -> None:
         pprint(spells)
 
     try:
-        winner, mana_total = combat(boss, player)
+        winner, mana_total = combat(boss, player, casts)
     except ManaOut as err:
         print(err)
 
