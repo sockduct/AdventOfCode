@@ -205,8 +205,53 @@ def get_damage(player: Character, effects: dict[str, Effect], turns: int) -> int
     return damage
 
 
-def simulate(player: Character, boss: Character, strategy: str,
-             verbose: bool=True) -> tuple[bool, str, list[str]]:
+def get_spell(player: Character, boss: Character, effects: dict[str, Effect]) -> Spell:
+    # When do we need to call recharge?
+    # * Find mana threshold
+    # When do we need to call drain?
+    # * Find hp threshold
+    remaining_turns = get_turns(player, boss, effects)
+    max_damage = get_damage(player, effects, remaining_turns)
+
+    if (
+        max_damage >= boss.hp and 'poison' not in effects and
+        player.mana >= spells['poison'].cost
+    ):
+        spell = spells['poison']
+    elif max_damage >= boss.hp:
+        spell = spells['missile']
+    elif (
+        remaining_turns >= 3 and ('poison' not in effects or effects['poison'].turns == 1)
+        and (
+            player.mana >= spells['poison'].cost + spells['recharge'].cost or
+            'recharge' in effects and player.mana + spells['recharge'].mana *
+            spells['recharge'].turns >= spells['poison'].cost + spells['recharge'].cost
+        )
+    ):
+        spell = spells['poison']
+    elif (
+        'recharge' not in effects and player.mana < spells['poison'].cost +
+        spells['recharge'].cost
+    ):
+        spell = spells['recharge']
+    elif 'shield' not in effects:
+        spell = spells['shield']
+    elif (
+        'poison' in effects and boss.hp - spells['poison'].damage * 2 -
+        spells['missile'].damage <= 0
+    ):
+        spell = spells['missile']
+    elif player.hp - max(boss.damage - spells['shield'].armor, 1) <= 0:
+        spell = spells['drain']
+    elif 'poison' not in effects:
+        spell = spells['poison']
+    else:
+        spell = spells['missile']
+
+    return spell
+
+
+def simulate(player: Character, boss: Character, verbose: bool=False) -> tuple[bool, str, list[str]]:
     '''
     Simulate combat.
     Return status:
@@ -221,54 +266,7 @@ def simulate(player: Character, boss: Character, strategy: str,
 
     while True:
         cround += 1
-        if strategy == 'attack':
-            if 'poison' not in effects:
-                spell = spells['poison']
-            else:
-                spell = spells['missile']
-        elif strategy == 'defend':
-            if 'shield' not in effects:
-                spell = spells['shield']
-            elif 'poison' not in effects:
-                spell = spells['poison']
-            else:
-                spell = spells['missile']
-        elif strategy == 'adaptive':
-            # When do we need to call recharge?
-            # * Find mana threshold
-            # When do we need to call drain?
-            # * Find hp threshold
-            remaining_turns = get_turns(test_player, test_boss, effects)
-            max_damage = get_damage(test_player, effects, remaining_turns)
-            if max_damage >= test_boss.hp and 'poison' not in effects and (
-                    test_player.mana >= spells['poison'].cost):
-                spell = spells['poison']
-            elif max_damage >= test_boss.hp:
-                spell = spells['missile']
-            elif (
-                remaining_turns >= 3 and ('poison' not in effects or effects['poison'].turns == 1)
-                and (test_player.mana >= spells['poison'].cost + spells['recharge'].cost or
-                     'recharge' in effects and test_player.mana + spells['recharge'].mana *
-                     spells['recharge'].turns >= spells['poison'].cost + spells['recharge'].cost)
-            ):
-                spell = spells['poison']
-            elif 'recharge' not in effects and (
-                    test_player.mana < spells['poison'].cost + spells['recharge'].cost):
-                spell = spells['recharge']
-            elif 'shield' not in effects:
-                spell = spells['shield']
-            elif 'poison' in effects and (test_boss.hp - spells['poison'].damage * 2
-                                          - spells['missile'].damage <= 0):
-                spell = spells['missile']
-            elif test_player.hp - max(test_boss.damage - spells['shield'].armor, 1) <= 0:
-                spell = spells['drain']
-            elif 'poison' not in effects:
-                spell = spells['poison']
-            else:
-                spell = spells['missile']
-        else:
-            raise RuntimeError('Need another strategy!!!')
-
+        spell = get_spell(test_player, test_boss, effects)
         casts.append(spell.name)
 
         test_player.mana -= spell.cost
@@ -277,10 +275,11 @@ def simulate(player: Character, boss: Character, strategy: str,
 
         if verbose:
             announce(cround, test_boss, test_player, test_player)
-        combat_turn(test_boss, test_player, test_player, cround, effects, spell, verbose=True)
+        combat_turn(test_boss, test_player, test_player, cround, effects, spell, verbose=verbose)
+
         if verbose:
             announce(cround, test_boss, test_player, test_boss)
-        combat_turn(test_boss, test_player, test_boss, cround, effects, verbose=True)
+        combat_turn(test_boss, test_player, test_boss, cround, effects, verbose=verbose)
 
         if test_boss.hp <= 0:
             return True, '', casts
@@ -313,22 +312,13 @@ def get_spells(player: Character, boss: Character, verbose: bool=True) -> tuple[
     * No, then...
     '''
     # Start with examples - this routine should come up with same spells.
-    strategies = ('attack', 'defend', 'adaptive')
-    depleted = False
+    won, reason, casts = simulate(player, boss)
 
-    for strategy in strategies:
-        if depleted and strategy != 'adaptive':
-            continue
+    if won:
+        return tuple(casts)
 
-        won, reason, casts = simulate(player, boss, strategy)
-
-        if won:
-            return tuple(casts)
-        elif reason == 'mana':
-            depleted = True
-
-        if verbose:
-            print(f'Player lost - ran out of {reason} using {strategy} strategy.')
+    if verbose:
+        print(f'Player lost - ran out of {reason}.')
 
     raise RuntimeError('Need a different strategy!!!')
 
