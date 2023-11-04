@@ -86,8 +86,175 @@ def parse(line: str, boss: Character) -> None:
             raise ValueError(f'Unexpected Value:  {line.strip()}')
 
 
+def get_turns(player: Character, boss: Character, effects: dict[str, Effect],
+              hard: bool=False) -> int:
+    hp = player.hp
+    armor = player.armor
+    turns = 1
+    shield_turns = effects['shield'].turns if 'shield' in effects else 0
+
+    while True:
+        # Pre-round
+        if hard:
+            hp -= 1
+
+        # Player turn effect and boss turn effect (x2):
+        shield_turns -= 2
+        if shield_turns <= 0:
+            armor = 0
+
+        # Boss turn
+        hp -= max(boss.damage - armor, 1)
+        if hp <= 0:
+            return turns
+
+        if hard and hp == 1:
+            return turns
+
+        turns += 1
+
+
+def get_damage(player: Character, effects: dict[str, Effect], turns: int) -> int:
+    damage = 0
+    mana = player.mana
+    poison_turns = effects['poison'].turns if 'poison' in effects else 0
+
+    for _ in range(turns):
+        if poison_turns > 0:
+            if poison_turns == 1:
+                damage += spells['poison'].damage
+                poison_turns -= 1
+            else:
+                damage += spells['poison'].damage * 2
+                poison_turns -= 2
+
+            if mana >= spells['missile'].cost:
+                mana -= spells['missile'].cost
+                damage += spells['missile'].damage
+        elif mana >= spells['poison'].cost:
+            mana -= spells['poison'].cost
+            poison_turns += spells['poison'].turns
+
+            # For boss turn:
+            damage += spells['poison'].damage
+            poison_turns -= 1
+        elif mana >= spells['missile'].cost:
+            mana -= spells['missile'].cost
+            damage += spells['missile'].damage
+        else:
+            return damage
+
+    return damage
+
+
+def get_spell(player: Character, boss: Character, effects: dict[str, Effect],
+              hard: bool=False) -> Spell:
+    # When do we need to call recharge?
+    # * Find mana threshold
+    # When do we need to call drain?
+    # * Find hp threshold
+    remaining_turns = get_turns(player, boss, effects, hard)
+    max_damage = get_damage(player, effects, remaining_turns)
+
+    if (
+        max_damage >= boss.hp and ('poison' not in effects or effects['poison'].turns == 1)
+        and player.mana >= spells['poison'].cost
+    ):
+        return spells['poison']
+    elif max_damage >= boss.hp:
+        return spells['missile']
+    elif (
+        remaining_turns >= 3 and ('poison' not in effects or effects['poison'].turns == 1)
+        and (
+            player.mana >= spells['poison'].cost + spells['recharge'].cost or
+            'recharge' in effects and player.mana + spells['recharge'].mana *
+            spells['recharge'].turns >= spells['poison'].cost + spells['recharge'].cost
+        )
+    ):
+        return spells['poison']
+    elif (
+        'recharge' not in effects and player.mana < spells['poison'].cost +
+        spells['recharge'].cost
+    ):
+        return spells['recharge']
+    elif 'shield' not in effects or effects['shield'].turns == 1:
+        return spells['shield']
+    elif (
+        'poison' in effects and boss.hp - spells['poison'].damage * 2 -
+        spells['missile'].damage <= 0
+    ):
+        return spells['missile']
+    elif player.hp - max(boss.damage - spells['shield'].armor, 1) <= 0:
+        return spells['drain']
+    elif 'poison' not in effects:
+        return spells['poison']
+    else:
+        return spells['missile']
+
+
+def simulate(player: Character, boss: Character, hard: bool=False,
+             verbose: bool=False) -> tuple[bool, str, list[str]]:
+    '''
+    Simulate combat.
+    Return status:
+    * True = Player won, empty string
+    * False = Player lost, string in ('mana', 'hp) - what player ran out of
+    '''
+    cround = 0
+    test_player = Character(name=player.name, hp=player.hp, mana=player.mana)
+    test_boss = Character(name=boss.name, hp=boss.hp, damage=boss.damage)
+    effects: dict[str, Effect] = {}
+    casts = []
+
+    while test_player.hp > 0 and test_boss.hp > 0:
+        cround += 1
+        spell = get_spell(test_player, test_boss, effects, hard)
+        casts.append(spell.name)
+
+        try:
+            _ = combat_round(test_boss, test_player, effects, spell, cround, hard, verbose)
+        except ManaOut:
+            return False, 'mana', casts
+
+    return (False, 'hp', casts) if test_player.hp <= 0 else (True, '', casts)
+
+
+def get_spells(player: Character, boss: Character, hard: bool=False,
+               verbose: bool=False) -> tuple[str, ...]:
+    '''
+    Come up with list of spells for player to cast
+
+    Goal:  Calculate the least amount of mana player can spend and still win the
+           fight.
+    Notes:
+        * Do not include mana recharge effects as "spending" negative mana.
+        * Attack via spells which cost mana - if don't have enough mana, player
+          loses
+
+    Use player hp, boss hp, and boss damage for calculations.
+    Intertwined tasks:
+        1) Calculate spells to kill boss before he kills player
+        2) Ensure have sufficient mana for spells
+        3) If insufficient mana must factor in using recharge
+
+    Initial strategy:
+    * Attack until either run out of mana or die - win?
+    * No, then...
+    '''
+    # Start with examples - this routine should come up with same spells.
+    won, reason, casts = simulate(player, boss, hard, verbose)
+
+    if won:
+        return tuple(casts)
+
+    if verbose:
+        print(f'Player lost - ran out of {reason}.')
+
+    raise RuntimeError('Need a different strategy!!!')
+
+
 def process(effects: dict[str, Effect], boss: Character, player: Character,
-            verbose: bool=True) -> None:
+            verbose: bool=False) -> None:
     effectq: deque[Effect] = deque()
 
     effectq.extend(effects.values())
@@ -131,7 +298,7 @@ def announce(cround: int, boss: Character, player: Character, current: Character
 
 
 def combat_turn(boss: Character, player: Character, current: Character, cround: int,
-                effects: dict[str, Effect], spell: Spell|None=None, verbose: bool=True) -> None:
+                effects: dict[str, Effect], spell: Spell|None=None, verbose: bool=False) -> None:
     if effects:
         process(effects, boss, player, verbose=verbose)
     elif verbose:
@@ -154,213 +321,61 @@ def combat_turn(boss: Character, player: Character, current: Character, cround: 
             raise ValueError('Attempt to execute player turn without passing spell!')
 
 
-def get_turns(player: Character, boss: Character, effects: dict[str, Effect]) -> int:
-    hp = player.hp
-    armor = player.armor
-    turns = 1
-    shield_turns = effects['shield'].turns if 'shield' in effects else 0
+def combat_round(boss: Character, player: Character, effects: dict[str, Effect], spell: Spell,
+                 cround: int, hard: bool=False, verbose: bool=False) -> int:
+    mana = 0
 
-    while True:
-        hp -= max(boss.damage - armor, 1)
-        shield_turns -= 1
-        if shield_turns <= 0:
-            armor = 0
+    # Player turn::
+    if verbose:
+        announce(cround, boss, player, player)
 
-        if hp <= 0:
-            return turns
+    if hard:
+        player.hp -= 1
+        if player.hp <= 0:
+            if verbose:
+                print('Player dies in pre-round.')
+            return mana
 
-        turns += 1
+    mana += spell.cost
+    player.mana -= spell.cost
+    if player.mana < 0:
+        raise ManaOut(f'Player has insufficient mana to cast {spell.name} ({player.mana})'
+                        ' - game over!')
 
-
-def get_damage(player: Character, effects: dict[str, Effect], turns: int) -> int:
-    damage = 0
-    mana = player.mana
-    poison_turns = effects['poison'].turns if 'poison' in effects else 0
-
-    for _ in range(turns):
-        if poison_turns > 0:
-            if poison_turns == 1:
-                damage += spells['poison'].damage
-                poison_turns -= 1
-            else:
-                damage += spells['poison'].damage * 2
-                poison_turns -= 2
-
-            if mana >= spells['missile'].cost:
-                mana -= spells['missile'].cost
-                damage += spells['missile'].damage
-        elif mana >= spells['poison'].cost:
-            mana -= spells['poison'].cost
-            poison_turns += spells['poison'].turns
-
-            # For boss turn:
-            damage += spells['poison'].damage
-            poison_turns -= 1
-        elif mana >= spells['missile'].cost:
-            mana -= spells['missile'].cost
-            damage += spells['missile'].damage
-        else:
-            return damage
-
-    return damage
-
-
-def get_spell(player: Character, boss: Character, effects: dict[str, Effect]) -> Spell:
-    # When do we need to call recharge?
-    # * Find mana threshold
-    # When do we need to call drain?
-    # * Find hp threshold
-    remaining_turns = get_turns(player, boss, effects)
-    max_damage = get_damage(player, effects, remaining_turns)
-
-    if (
-        max_damage >= boss.hp and 'poison' not in effects and
-        player.mana >= spells['poison'].cost
-    ):
-        spell = spells['poison']
-    elif max_damage >= boss.hp:
-        spell = spells['missile']
-    elif (
-        remaining_turns >= 3 and ('poison' not in effects or effects['poison'].turns == 1)
-        and (
-            player.mana >= spells['poison'].cost + spells['recharge'].cost or
-            'recharge' in effects and player.mana + spells['recharge'].mana *
-            spells['recharge'].turns >= spells['poison'].cost + spells['recharge'].cost
-        )
-    ):
-        spell = spells['poison']
-    elif (
-        'recharge' not in effects and player.mana < spells['poison'].cost +
-        spells['recharge'].cost
-    ):
-        spell = spells['recharge']
-    elif 'shield' not in effects:
-        spell = spells['shield']
-    elif (
-        'poison' in effects and boss.hp - spells['poison'].damage * 2 -
-        spells['missile'].damage <= 0
-    ):
-        spell = spells['missile']
-    elif player.hp - max(boss.damage - spells['shield'].armor, 1) <= 0:
-        spell = spells['drain']
-    elif 'poison' not in effects:
-        spell = spells['poison']
-    else:
-        spell = spells['missile']
-
-    return spell
-
-
-def simulate(player: Character, boss: Character, verbose: bool=False) -> tuple[bool, str, list[str]]:
-    '''
-    Simulate combat.
-    Return status:
-    * True = Player won, empty string
-    * False = Player lost, string in ('mana', 'hp) - what player ran out of
-    '''
-    cround = 0
-    test_player = Character(name=player.name, hp=player.hp, mana=player.mana)
-    test_boss = Character(name=boss.name, hp=boss.hp, damage=boss.damage)
-    effects: dict[str, Effect] = {}
-    casts = []
-
-    while True:
-        cround += 1
-        spell = get_spell(test_player, test_boss, effects)
-        casts.append(spell.name)
-
-        test_player.mana -= spell.cost
-        if test_player.mana < 0:
-            return False, 'mana', casts
-
+    combat_turn(boss, player, player, cround, effects, spell, verbose)
+    if boss.hp <= 0:
         if verbose:
-            announce(cround, test_boss, test_player, test_player)
-        combat_turn(test_boss, test_player, test_player, cround, effects, spell, verbose=verbose)
+            print('Boss dies from player attack.')
+        return mana
 
+    # Boss turn:
+    if verbose:
+        announce(cround, boss, player, boss)
+
+    combat_turn(boss, player, boss, cround, effects, spell=None, verbose=verbose)
+    if boss.hp <= 0:
         if verbose:
-            announce(cround, test_boss, test_player, test_boss)
-        combat_turn(test_boss, test_player, test_boss, cround, effects, verbose=verbose)
+            print('Boss dies from effect.')
+        return mana
 
-        if test_boss.hp <= 0:
-            return True, '', casts
-
-        test_player.hp -= max(test_boss.damage - test_player.armor, 1)
-
-        if test_player.hp <= 0:
-            return False, 'hp', casts
-
-
-def get_spells(player: Character, boss: Character, verbose: bool=True) -> tuple[str, ...]:
-    '''
-    Come up with list of spells for player to cast
-
-    Goal:  Calculate the least amount of mana player can spend and still win the
-           fight.
-    Notes:
-        * Do not include mana recharge effects as "spending" negative mana.
-        * Attack via spells which cost mana - if don't have enough mana, player
-          loses
-
-    Use player hp, boss hp, and boss damage for calculations.
-    Intertwined tasks:
-        1) Calculate spells to kill boss before he kills player
-        2) Ensure have sufficient mana for spells
-        3) If insufficient mana must factor in using recharge
-
-    Initial strategy:
-    * Attack until either run out of mana or die - win?
-    * No, then...
-    '''
-    # Start with examples - this routine should come up with same spells.
-    won, reason, casts = simulate(player, boss)
-
-    if won:
-        return tuple(casts)
+    player.hp -= (boss_damage := max(boss.damage - player.armor, 1))
 
     if verbose:
-        print(f'Player lost - ran out of {reason}.')
+        print(f'Boss attacks for {boss_damage}')
 
-    raise RuntimeError('Need a different strategy!!!')
+    return mana
 
 
 def combat(boss: Character, player: Character, casts: tuple[str, ...],
-           verbose: bool=True) -> tuple[Character, int]:
+           hard: bool=False, verbose: bool=False) -> tuple[Character, int]:
     cround = 0
     mana_total = 0
     effects: dict[str, Effect] = {}
 
     while player.hp > 0 and boss.hp > 0:
         cround += 1
-
-        # Player turn::
-        if verbose:
-            announce(cround, boss, player, player)
-
         spell = spells[casts[cround - 1]]
-        if not spell:
-            raise ValueError('Attempted combat round without supplying player spell!')
-
-        mana_total += spell.cost
-        player.mana -= spell.cost
-        if player.mana < 0:
-            raise ManaOut(f'Player has insufficient mana to cast {spell.name} ({player.mana})'
-                          ' - game over!')
-
-        combat_turn(boss, player, player, cround, effects, spell)
-
-        # Boss turn:
-        if verbose:
-            announce(cround, boss, player, boss)
-
-        combat_turn(boss, player, boss, cround, effects)
-
-        if boss.hp <= 0:
-            break
-
-        player.hp -= (boss_damage := max(boss.damage - player.armor, 1))
-
-        if verbose:
-            print(f'Boss attacks for {boss_damage}')
+        mana_total += combat_round(boss, player, effects, spell, cround, hard, verbose)
 
     winner = boss if player.hp <= 0 else player
 
@@ -372,7 +387,11 @@ def combat(boss: Character, player: Character, casts: tuple[str, ...],
     return winner, mana_total
 
 
-def main(verbose: bool=True) -> None:
+def main() -> None:
+    # Overall program settings:
+    verbose = True
+    hard = False
+
     cwd = Path(__file__).parent
     boss = Character(name='boss')
     with open(cwd/INFILE) as infile:
@@ -387,7 +406,8 @@ def main(verbose: bool=True) -> None:
     # boss = Character(name='boss', hp=14, damage=8)
     # casts = ('poison', 'missile')
     # casts = ('recharge', 'shield', 'drain', 'poison', 'missile')
-    casts = get_spells(player, boss)
+
+    casts = get_spells(player, boss, hard, verbose)
 
     if verbose:
         print(f'Player:  {player}')
@@ -396,7 +416,7 @@ def main(verbose: bool=True) -> None:
         pprint(spells)
 
     try:
-        winner, mana_total = combat(boss, player, casts)
+        winner, mana_total = combat(boss, player, casts, hard, verbose)
     except ManaOut as err:
         print(err)
 
