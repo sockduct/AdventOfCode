@@ -24,7 +24,6 @@ INFILE = 'd22.txt'
 # Libraries:
 from collections import deque
 from dataclasses import dataclass
-import math
 from pathlib import Path
 from pprint import pprint
 from typing import NamedTuple
@@ -143,9 +142,11 @@ def combat_turn(boss: Character, player: Character, current: Character, cround: 
             if verbose:
                 print(f'Player casts {spell.name}...')
 
-            if spell.effect:
+            if spell.effect and spell.name not in effects:
                 effects[spell.name] = Effect(name=spell.name, turns=spell.turns, temp=spell.temp,
                                             damage=spell.damage, armor=spell.armor, mana=spell.mana)
+            elif spell.effect:
+                raise RuntimeError('Attempt to cast spell with effect that\'s already active!')
             else:
                 boss.hp -= spell.damage
                 player.hp += spell.heal
@@ -244,6 +245,13 @@ def simulate(player: Character, boss: Character, strategy: str,
                 spell = spells['poison']
             elif max_damage >= test_boss.hp:
                 spell = spells['missile']
+            elif (
+                remaining_turns >= 3 and ('poison' not in effects or effects['poison'].turns == 1)
+                and (test_player.mana >= spells['poison'].cost + spells['recharge'].cost or
+                     'recharge' in effects and test_player.mana + spells['recharge'].mana *
+                     spells['recharge'].turns >= spells['poison'].cost + spells['recharge'].cost)
+            ):
+                spell = spells['poison']
             elif 'recharge' not in effects and (
                     test_player.mana < spells['poison'].cost + spells['recharge'].cost):
                 spell = spells['recharge']
