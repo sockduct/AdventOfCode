@@ -158,7 +158,15 @@ def get_spell(player: Character, boss: Character, effects: dict[str, Effect],
 
     if (
         max_damage >= boss.hp and ('poison' not in effects or effects['poison'].turns == 1)
-        and player.mana >= spells['poison'].cost
+        and (player.mana >= spells['poison'].cost + (remaining_turns - 1) * spells['missile'].cost
+             or 'recharge' in effects and player.mana + spells['recharge'].mana *
+             spells['recharge'].turns >= spells['poison'].cost + (remaining_turns - 1)
+             * spells['missile'].cost
+        ) and (
+            'poison' not in effects and spells['missile'].damage * remaining_turns < boss.hp
+            or 'poison' in effects and spells['missile'].damage * remaining_turns +
+            spells['poison'].damage * spells['poison'].turns < boss.hp
+        )
     ):
         return spells['poison']
     elif max_damage >= boss.hp:
@@ -390,7 +398,7 @@ def combat(boss: Character, player: Character, casts: tuple[str, ...],
 def main() -> None:
     # Overall program settings:
     verbose = True
-    hard = False
+    hard = True
 
     cwd = Path(__file__).parent
     boss = Character(name='boss')
