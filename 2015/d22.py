@@ -248,8 +248,22 @@ def get_spells(player: Character, boss: Character, hard: bool=False,
     Initial strategy:
     * Attack until either run out of mana or die - win?
     * No, then...
+    * Too complex...
+
+    Brute force approach:
+    Best path:  Poison -> Recharge -> Shield -> Poison -> Recharge -> Drain ->
+                Poison -> Drain -> Magic Missile
+
+    To do:
+    * Create enum of 5 spells, 1 = magic missile, 2 = ...
+    * Sequence will count from 1 - 5 and keep appending (counting through
+      permutations)
+    * Keep counting until win
+    * Once find win, probably need try all remainng permutations without adding
+      another digit to the sequence (to ensure find lowest cost)
     '''
     # Start with examples - this routine should come up with same spells.
+    sequence = [1]
     won, reason, casts = simulate(player, boss, hard, verbose)
 
     if won:
