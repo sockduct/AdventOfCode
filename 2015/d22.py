@@ -24,6 +24,7 @@ INFILE = 'd22.txt'
 # Libraries:
 from collections import deque
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from pprint import pprint
 from typing import NamedTuple
@@ -74,6 +75,14 @@ spells = {
     'poison': Spell(name='poison', cost=173, effect=True, turns=6, damage=3),
     'recharge': Spell(name='recharge', cost=229, effect=True, turns=5, mana=101),
 }
+
+
+class SpellCatalog(Enum):
+    MISSILE = 'missile'
+    DRAIN = 'drain'
+    SHIELD = 'shield'
+    POISON = 'poison'
+    RECHARGE = 'recharge'
 
 
 def parse(line: str, boss: Character) -> None:
@@ -261,9 +270,16 @@ def get_spells(player: Character, boss: Character, hard: bool=False,
     * Keep counting until win
     * Once find win, probably need try all remainng permutations without adding
       another digit to the sequence (to ensure find lowest cost)
+    * Again - too complex
+
+    Back track approach:
+    * Find solution and save
+    * Backtrack to shield and try drain instead?
+
+    Solution - follow brute force/backtracking using backtracking algorithm from
+    The Algorithm Design Manual 3rd edition, Ch. 9
     '''
     # Start with examples - this routine should come up with same spells.
-    sequence = [1]
     won, reason, casts = simulate(player, boss, hard, verbose)
 
     if won:
