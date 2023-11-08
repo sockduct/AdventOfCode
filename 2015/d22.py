@@ -209,8 +209,8 @@ def get_spell(player: Character, boss: Character, effects: dict[str, Effect],
         return spells['missile']
 
 
-def simulate(player: Character, boss: Character, hard: bool=False,
-             verbose: bool=False) -> tuple[bool, str, list[str]]:
+def simulate(casts: deque[str], player: Character, boss: Character, hard: bool=False,
+             verbose: bool=False) -> tuple[bool, str|object]:
     '''
     Simulate combat.
     Return status:
@@ -221,23 +221,29 @@ def simulate(player: Character, boss: Character, hard: bool=False,
     test_player = Character(name=player.name, hp=player.hp, mana=player.mana)
     test_boss = Character(name=boss.name, hp=boss.hp, damage=boss.damage)
     effects: dict[str, Effect] = {}
-    casts = []
 
     while test_player.hp > 0 and test_boss.hp > 0:
         cround += 1
-        spell = get_spell(test_player, test_boss, effects, hard)
-        casts.append(spell.name)
+        # spell = get_spell(test_player, test_boss, effects, hard)
+        # casts.append(spell.name)
+        if casts:
+            spell = spells[casts.popleft()]
+        else:
+            return False, 'nospell'
 
         try:
-            _ = combat_round(test_boss, test_player, effects, spell, cround, hard, verbose)
+            _ = combat_round(test_boss, test_player, effects, spell, cround, hard, verbose, True)
         except ManaOut:
-            return False, 'mana', casts
+            # return False, 'mana', casts
+            return False, 'mana'
 
-    return (False, 'hp', casts) if test_player.hp <= 0 else (True, '', casts)
+    # return (False, 'hp', casts) if test_player.hp <= 0 else (True, '', casts)
+    return (False, 'hp') if test_player.hp <= 0 else (True, test_player.mana)
 
 
-def get_spells(player: Character, boss: Character, hard: bool=False,
-               verbose: bool=False) -> tuple[str, ...]:
+def get_spells(casts: list[str], player: Character, boss: Character,
+               solutions: set[tuple[str, ...]], invalid: set[tuple[str, ...]],
+               castpos: list[int], hard: bool=False, verbose: bool=False) -> None:
     '''
     Come up with list of spells for player to cast
 
@@ -263,15 +269,6 @@ def get_spells(player: Character, boss: Character, hard: bool=False,
     Best path:  Poison -> Recharge -> Shield -> Poison -> Recharge -> Drain ->
                 Poison -> Drain -> Magic Missile
 
-    To do:
-    * Create enum of 5 spells, 1 = magic missile, 2 = ...
-    * Sequence will count from 1 - 5 and keep appending (counting through
-      permutations)
-    * Keep counting until win
-    * Once find win, probably need try all remainng permutations without adding
-      another digit to the sequence (to ensure find lowest cost)
-    * Again - too complex
-
     Back track approach:
     * Find solution and save
     * Backtrack to shield and try drain instead?
@@ -280,15 +277,81 @@ def get_spells(player: Character, boss: Character, hard: bool=False,
     The Algorithm Design Manual 3rd edition, Ch. 9
     '''
     # Start with examples - this routine should come up with same spells.
-    won, reason, casts = simulate(player, boss, hard, verbose)
+    for spell in SpellCatalog:
+        castposnum = castpos[0]
 
-    if won:
-        return tuple(casts)
+        # Limit growth:
+        if castposnum >= castpos[1]:
+            break
 
-    if verbose:
-        print(f'Player lost - ran out of {reason}.')
+        if len(casts) == castposnum:
+            casts.append(spell.value)
+        else:
+            casts[castposnum] = spell.value
 
-    raise RuntimeError('Need a different strategy!!!')
+        if tuple(casts) in invalid or tuple(casts[:-1]) in invalid:
+            continue
+
+        if len(casts) == 5:
+            print(f'{casts=}')
+
+        won, data = simulate(deque(casts), player, boss, hard, verbose)
+
+        if won:
+            if verbose:
+                print(f'Found solution using {data} mana:  {casts}')
+
+            solutions.add(tuple(casts))
+        else:
+            # Failed branch - next:
+            if data in ('hp', 'mana'):
+                continue
+
+            # Otherwise keeping looking:
+            if casts:
+                castposnum += 1
+                castpos[0] = castposnum
+
+            get_spells(casts, player, boss, solutions, invalid, castpos, hard, verbose)
+
+    # None of the spells worked:
+    if casts:
+        casts.pop()
+    '''
+    if casts:
+        invalid.add(tuple(casts))
+    '''
+    castposnum = min(castposnum - 1, len(casts))
+    castpos[0] = castposnum
+
+
+def get_spells2(casts: list[str], solutions: set[tuple[str, ...]],
+                castpos: list[int], verbose: bool=False) -> None:
+    for spell in SpellCatalog:
+        castposnum = castpos[0]
+
+        # Limit growth:
+        if castposnum >= castpos[1]:
+            break
+
+        if len(casts) == castposnum:
+            casts.append(spell.value)
+        else:
+            casts[castposnum] = spell.value
+
+        solutions.add(tuple(casts))
+
+        if casts:
+            castposnum += 1
+            castpos[0] = castposnum
+
+        get_spells2(casts, solutions, castpos, verbose)
+
+    # None of the spells worked:
+    if casts:
+        casts.pop()
+    castposnum = len(casts)
+    castpos[0] = castposnum
 
 
 def process(effects: dict[str, Effect], boss: Character, player: Character,
@@ -336,7 +399,8 @@ def announce(cround: int, boss: Character, player: Character, current: Character
 
 
 def combat_turn(boss: Character, player: Character, current: Character, cround: int,
-                effects: dict[str, Effect], spell: Spell|None=None, verbose: bool=False) -> None:
+                effects: dict[str, Effect], spell: Spell|None=None, verbose: bool=False,
+                simulate_turn: bool=False) -> None:
     if effects:
         process(effects, boss, player, verbose=verbose)
     elif verbose:
@@ -351,7 +415,10 @@ def combat_turn(boss: Character, player: Character, current: Character, cround: 
                 effects[spell.name] = Effect(name=spell.name, turns=spell.turns, temp=spell.temp,
                                             damage=spell.damage, armor=spell.armor, mana=spell.mana)
             elif spell.effect:
-                raise RuntimeError('Attempt to cast spell with effect that\'s already active!')
+                if not simulate_turn:
+                    raise RuntimeError('Attempt to cast spell with effect that\'s already active!')
+                return
+
             else:
                 boss.hp -= spell.damage
                 player.hp += spell.heal
@@ -360,7 +427,8 @@ def combat_turn(boss: Character, player: Character, current: Character, cround: 
 
 
 def combat_round(boss: Character, player: Character, effects: dict[str, Effect], spell: Spell,
-                 cround: int, hard: bool=False, verbose: bool=False) -> int:
+                 cround: int, hard: bool=False, verbose: bool=False,
+                 simulate_round: bool=False) -> int:
     mana = 0
 
     # Player turn::
@@ -380,7 +448,7 @@ def combat_round(boss: Character, player: Character, effects: dict[str, Effect],
         raise ManaOut(f'Player has insufficient mana to cast {spell.name} ({player.mana})'
                         ' - game over!')
 
-    combat_turn(boss, player, player, cround, effects, spell, verbose)
+    combat_turn(boss, player, player, cround, effects, spell, verbose, simulate_round)
     if boss.hp <= 0:
         if verbose:
             print('Boss dies from player attack.')
@@ -425,11 +493,26 @@ def combat(boss: Character, player: Character, casts: tuple[str, ...],
     return winner, mana_total
 
 
+def get_best(solutions: set[tuple[str, ...]], verbose: bool=False) -> tuple[str, ...]:
+    spell_sets = {}
+    for solution in solutions:
+        mana_total = sum(spells[spell].cost for spell in solution)
+        spell_sets[mana_total] = solution
+
+    if verbose:
+        print('Valid spell sequences for player win:')
+        pprint(spell_sets)
+
+    least_mana = sorted(spell_sets.keys())[0]
+    return spell_sets[least_mana]
+
+
 def main() -> None:
     # Overall program settings:
-    verbose = True
-    hard = True
+    verbose = False
+    hard = False
 
+    '''
     cwd = Path(__file__).parent
     boss = Character(name='boss')
     with open(cwd/INFILE) as infile:
@@ -437,16 +520,33 @@ def main() -> None:
             parse(line, boss)
 
     player = Character(name='player', hp=50, mana=500)
+    '''
 
     # Testing:
     # player = Character(name='player', hp=10, mana=250)
+    player = Character(name='player', hp=20, mana=250)
     # boss = Character(name='boss', hp=13, damage=8)
     # boss = Character(name='boss', hp=14, damage=8)
+    boss = Character(name='boss', hp=24, damage=8)
     # casts = ('poison', 'missile')
     # casts = ('recharge', 'shield', 'drain', 'poison', 'missile')
 
-    casts = get_spells(player, boss, hard, verbose)
+    casts = []
+    # Current, Max:
+    castpos = [0, 10]
+    solutions = set()
+    invalid = set()
+    get_spells(casts, player, boss, solutions, invalid, castpos, hard, verbose)
+    # get_spells2(casts, solutions, castpos, verbose)
 
+    verbose = True
+    # Choose best solution:
+    ##casts = get_best(solutions, verbose)
+    if verbose:
+        print(f'{len(solutions)} valid spell sequences for player win:')
+        pprint(solutions)
+
+    '''
     if verbose:
         print(f'Player:  {player}')
         print(f'Boss:  {boss}')
@@ -460,6 +560,7 @@ def main() -> None:
 
     print(f'\nWinner:  {winner}')
     print(f'Player expended {mana_total} mana.')
+    '''
 
 
 if __name__ == '__main__':
