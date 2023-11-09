@@ -242,8 +242,8 @@ def simulate(casts: deque[str], player: Character, boss: Character, hard: bool=F
 
 
 def get_spells(casts: list[str], player: Character, boss: Character,
-               solutions: set[tuple[str, ...]], invalid: set[tuple[str, ...]],
-               castpos: list[int], hard: bool=False, verbose: bool=False) -> None:
+               solutions: set[tuple[str, ...]], castpos: int, castmax: int,
+               hard: bool=False, verbose: bool=False) -> None:
     '''
     Come up with list of spells for player to cast
 
@@ -278,21 +278,16 @@ def get_spells(casts: list[str], player: Character, boss: Character,
     '''
     # Start with examples - this routine should come up with same spells.
     for spell in SpellCatalog:
-        castposnum = castpos[0]
-
         # Limit growth:
-        if castposnum >= castpos[1]:
+        if castpos >= castmax:
             break
 
-        if len(casts) == castposnum:
+        if len(casts) == castpos:
             casts.append(spell.value)
         else:
-            casts[castposnum] = spell.value
+            casts[castpos] = spell.value
 
-        if tuple(casts) in invalid or tuple(casts[:-1]) in invalid:
-            continue
-
-        if len(casts) == 5:
+        if len(casts) == 2:
             print(f'{casts=}')
 
         won, data = simulate(deque(casts), player, boss, hard, verbose)
@@ -309,49 +304,39 @@ def get_spells(casts: list[str], player: Character, boss: Character,
 
             # Otherwise keeping looking:
             if casts:
-                castposnum += 1
-                castpos[0] = castposnum
+                castpos += 1
 
-            get_spells(casts, player, boss, solutions, invalid, castpos, hard, verbose)
+            get_spells(casts, player, boss, solutions, castpos, castmax, hard, verbose)
+            castpos -= 1
 
     # None of the spells worked:
     if casts:
         casts.pop()
-    '''
-    if casts:
-        invalid.add(tuple(casts))
-    '''
-    castposnum = min(castposnum - 1, len(casts))
-    castpos[0] = castposnum
 
 
 def get_spells2(casts: list[str], solutions: set[tuple[str, ...]],
-                castpos: list[int], verbose: bool=False) -> None:
+                castpos: int, castmax: int, verbose: bool=False) -> None:
     for spell in SpellCatalog:
-        castposnum = castpos[0]
-
         # Limit growth:
-        if castposnum >= castpos[1]:
+        if castpos >= castmax:
             break
 
-        if len(casts) == castposnum:
+        if len(casts) == castpos:
             casts.append(spell.value)
         else:
-            casts[castposnum] = spell.value
+            casts[castpos] = spell.value
 
         solutions.add(tuple(casts))
 
         if casts:
-            castposnum += 1
-            castpos[0] = castposnum
+            castpos += 1
 
-        get_spells2(casts, solutions, castpos, verbose)
+        get_spells2(casts, solutions, castpos, castmax, verbose)
+        castpos -= 1
 
     # None of the spells worked:
     if casts:
         casts.pop()
-    castposnum = len(casts)
-    castpos[0] = castposnum
 
 
 def process(effects: dict[str, Effect], boss: Character, player: Character,
@@ -501,7 +486,7 @@ def get_best(solutions: set[tuple[str, ...]], verbose: bool=False) -> tuple[str,
 
     if verbose:
         print('Valid spell sequences for player win:')
-        pprint(spell_sets)
+        pprint(spell_sets, width=120)
 
     least_mana = sorted(spell_sets.keys())[0]
     return spell_sets[least_mana]
@@ -510,9 +495,8 @@ def get_best(solutions: set[tuple[str, ...]], verbose: bool=False) -> tuple[str,
 def main() -> None:
     # Overall program settings:
     verbose = False
-    hard = False
+    hard = True
 
-    '''
     cwd = Path(__file__).parent
     boss = Character(name='boss')
     with open(cwd/INFILE) as infile:
@@ -520,33 +504,32 @@ def main() -> None:
             parse(line, boss)
 
     player = Character(name='player', hp=50, mana=500)
-    '''
 
     # Testing:
     # player = Character(name='player', hp=10, mana=250)
-    player = Character(name='player', hp=20, mana=250)
+    # player = Character(name='player', hp=20, mana=250)
     # boss = Character(name='boss', hp=13, damage=8)
     # boss = Character(name='boss', hp=14, damage=8)
-    boss = Character(name='boss', hp=24, damage=8)
+    # boss = Character(name='boss', hp=24, damage=8)
     # casts = ('poison', 'missile')
     # casts = ('recharge', 'shield', 'drain', 'poison', 'missile')
 
     casts = []
-    # Current, Max:
-    castpos = [0, 10]
+    castpos = 0
+    castmax = 10
     solutions = set()
-    invalid = set()
-    get_spells(casts, player, boss, solutions, invalid, castpos, hard, verbose)
-    # get_spells2(casts, solutions, castpos, verbose)
+    get_spells(casts, player, boss, solutions, castpos, castmax, hard, verbose)
+    # get_spells2(casts, solutions, castpos, castmax, verbose)
 
     verbose = True
     # Choose best solution:
-    ##casts = get_best(solutions, verbose)
+    casts = get_best(solutions, verbose)
+    '''
     if verbose:
         print(f'{len(solutions)} valid spell sequences for player win:')
-        pprint(solutions)
-
+        pprint(solutions, width=120)
     '''
+
     if verbose:
         print(f'Player:  {player}')
         print(f'Boss:  {boss}')
@@ -560,7 +543,6 @@ def main() -> None:
 
     print(f'\nWinner:  {winner}')
     print(f'Player expended {mana_total} mana.')
-    '''
 
 
 if __name__ == '__main__':
