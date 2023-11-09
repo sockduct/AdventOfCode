@@ -63,6 +63,14 @@ class Effect:
     mana: int = 0
 
 
+class SpellCatalog(Enum):
+    MISSILE = 'missile'
+    DRAIN = 'drain'
+    SHIELD = 'shield'
+    POISON = 'poison'
+    RECHARGE = 'recharge'
+
+
 class ManaOut(BaseException):
     pass
 
@@ -75,14 +83,6 @@ spells = {
     'poison': Spell(name='poison', cost=173, effect=True, turns=6, damage=3),
     'recharge': Spell(name='recharge', cost=229, effect=True, turns=5, mana=101),
 }
-
-
-class SpellCatalog(Enum):
-    MISSILE = 'missile'
-    DRAIN = 'drain'
-    SHIELD = 'shield'
-    POISON = 'poison'
-    RECHARGE = 'recharge'
 
 
 def parse(line: str, boss: Character) -> None:
@@ -514,12 +514,12 @@ def main() -> None:
     # casts = ('poison', 'missile')
     # casts = ('recharge', 'shield', 'drain', 'poison', 'missile')
 
-    casts = []
+    spell_set: list[str] = []
     castpos = 0
     castmax = 10
-    solutions = set()
-    get_spells(casts, player, boss, solutions, castpos, castmax, hard, verbose)
-    # get_spells2(casts, solutions, castpos, castmax, verbose)
+    solutions: set[tuple[str, ...]] = set()
+    get_spells(spell_set, player, boss, solutions, castpos, castmax, hard, verbose)
+    # get_spells2(spell_set, solutions, castpos, castmax, verbose)
 
     verbose = True
     # Choose best solution:
