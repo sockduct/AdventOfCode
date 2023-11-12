@@ -23,11 +23,11 @@ from math import prod
 from pathlib import Path
 
 
-def get_target(weights: list[int]) -> int:
+def get_target(weights: list[int], group_count: int) -> int:
     total = sum(weights)
-    target = total//3
-    if target * 3 != total:
-        raise ValueError('Total weight must be divisible by 3!')
+    target = total//group_count
+    if target * group_count != total:
+        raise ValueError(f'Total weight must be divisible by {group_count}!')
 
     return target
 
@@ -58,6 +58,24 @@ def get_groups(weights: list[int], target: int) -> tuple[list[int], list[int]]:
     return group2, group3
 
 
+def get_groups3(weights: list[int], target: int) -> tuple[list[int], list[int], list[int]]:
+    for num in range(2, len(weights) - 2):
+        if candidate := [e for e in combinations(weights, num) if sum(e) == target]:
+            break
+
+    group2 = list(min(candidate))
+    weights = list(set(weights) - set(group2))
+
+    for num in range(2, len(weights) - 1):
+        if candidate := [e for e in combinations(weights, num) if sum(e) == target]:
+            break
+
+    group3 = list(min(candidate))
+    group4 = list(set(weights) - set(group3))
+
+    return group2, group3, group4
+
+
 def main() -> None:
     cwd = Path(__file__).parent
     # Note:  Assuming weights are sorted and unique
@@ -65,16 +83,21 @@ def main() -> None:
     with open(cwd/INFILE) as infile:
         weights.extend(int(line.strip()) for line in infile)
 
-    target = get_target(weights)
+    # desired_groups = 3
+    # Part 2:
+    desired_groups = 4
+    target = get_target(weights, desired_groups)
     group1 = get_group1(weights, target)
 
     remaining = list(set(weights) - set(group1))
-    group2, group3 = get_groups(remaining, target)
+    # group2, group3 = get_groups(remaining, target)
+    group2, group3, group4 = get_groups3(remaining, target)
 
     qe = prod(group1)
 
-    print(f'Group 1:  {group1}\nGroup 2:  {group2}\nGroup 3:  {group3}')
-    print(f'Quantum Entanglement of Group 1:  {qe}')
+    # print(f'Group 1:  {group1}\nGroup 2:  {group2}\nGroup 3:  {group3}')
+    print(f'Group 1:  {group1}\nGroup 2:  {group2}\nGroup 3:  {group3}\nGroup 4:  {group4}')
+    print(f'Quantum Entanglement of Group 1:  {qe:,}')
 
 
 if __name__ == '__main__':
