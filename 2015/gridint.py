@@ -22,18 +22,19 @@ class Grid:
         return f'Grid({self.x}, {self.y})'
 
     def __str__(self) -> str:
-        # Limit to first 10x10
+        # Limit to first 8x8
+        maxval = 8
         xover = False
         yover = False
 
-        if self.x > 10:
-            x = 10
+        if self.x > maxval:
+            x = maxval
             xover = True
         else:
             x = self.x
 
-        if self.y > 10:
-            y = 10
+        if self.y > maxval:
+            y = maxval
             yover = True
         else:
             y = self.y
