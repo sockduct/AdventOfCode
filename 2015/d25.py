@@ -35,8 +35,7 @@ def main() -> None:
     with open(cwd/INFILE) as infile:
         data = infile.read().strip()
 
-    # To continue, please consult the code grid in the manual.  Enter the code at row 3011, column 3019.
-    row, col = map(int, re.search(r'row (\d+), column (\d+).', data).groups())
+    row, col = map(int, re.search(r'row (\d+), column (\d+).', data).groups())  # type: ignore[union-attr]
     print(f'Looking for value at row {row}, column {col}.')
 
     # first = 1
@@ -47,9 +46,6 @@ def main() -> None:
     diagadd(grid, stop=size, seed=first)
     print(f'Grid:\n{grid}')
     print(f'Grid[{row}, {col}] = {grid.point(col - 1, row - 1)}')
-
-    # Temp
-    return grid
 
 
 if __name__ == '__main__':
