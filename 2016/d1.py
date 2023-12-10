@@ -10,23 +10,33 @@ Follow the directions (grid traversal)
 
 INFILE = 'd1.txt'
 # INFILE = 'd1t1.txt'
+# INFILE = 'd1t2.txt'
 
 
 # Libraries
+from collections import defaultdict
 from pathlib import Path
 
 
 # Types
 class Location:
-    def __init__(self, heading: str='N', offset_ns: int=0, offset_we: int=0) -> None:
+    def __init__(self, heading: str='N', offset_ns: int=0, offset_we: int=0,
+                 check_repeats: bool=False, first_only: bool=True) -> None:
         self.header = heading
         self.offset_ns = offset_ns
         self.offset_we = offset_we
+        self.check_repeats = check_repeats
+        self.first_only = first_only
+        self.repeat_shown = False
+        self.visited = defaultdict(int, {(offset_ns, offset_we): 1})
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.header}, {self.offset_ns}, {self.offset_we})'
 
     def __str__(self) -> str:
+        return (f'Facing {self.header}, {self.pos_str()}.')
+
+    def pos_str(self) -> str:
         ns = 'North' if self.offset_ns >= 0 else 'South'
         we = 'East' if self.offset_we >= 0 else 'West'
 
@@ -36,24 +46,44 @@ class Location:
         if ns_str and we_str:
             offset_str = f'{ns_str}, {we_str} from'
         elif ns_str:
-            offset_str = ns_str
+            offset_str = f'{ns_str} from'
         elif we_str:
-            offset_str = we_str
+            offset_str = f'{we_str} from'
         else:
             offset_str = 'at'
 
-        return (f'Facing {self.header}, {offset_str} starting position.')
+        return (f'{offset_str} starting position')
 
     def move(self, steps: int) -> None:
         match self.header:
             case 'N':
-                self.offset_ns += steps
+                for _ in range(steps):
+                    self.offset_ns += 1
+                    self.visited[(self.offset_ns, self.offset_we)] += 1
             case 'E':
-                self.offset_we += steps
+                for _ in range(steps):
+                    self.offset_we += 1
+                    self.visited[(self.offset_ns, self.offset_we)] += 1
             case 'S':
-                self.offset_ns -= steps
+                for _ in range(steps):
+                    self.offset_ns -= 1
+                    self.visited[(self.offset_ns, self.offset_we)] += 1
             case 'W':
-                self.offset_we -= steps
+                for _ in range(steps):
+                    self.offset_we -= 1
+                    self.visited[(self.offset_ns, self.offset_we)] += 1
+
+        if self.check_repeats and 2 in self.visited.values():
+            if self.first_only:
+                if self.repeat_shown:
+                    return
+                else:
+                    self.repeat_shown = True
+
+            for key, val in self.visited.items():
+                if val >= 2:
+                    print(f'Visited {Location(self.header, key[0], key[1]).pos_str()} '
+                          f'{val} times.')
 
     def new_heading(self, turn: str) -> None:
         match self.header, turn:
@@ -104,19 +134,20 @@ def parse(line: str) -> list[str]:
 
 
 def travel(directions: tuple[str]|list[str], verbose: bool=True) -> int:
-    location = Location()
+    location = Location(check_repeats=True)
 
     for step in directions:
         location.step(step)
 
     if verbose:
-        print(location)
+        print(f'\n{location}')
 
     return location.offset()
 
 
-def main():
-    with open(INFILE) as infile:
+def main() -> None:
+    cwd = Path(__file__).parent
+    with open(cwd/INFILE) as infile:
         for line in infile:
             directions = parse(line)
             offset = travel(directions)
