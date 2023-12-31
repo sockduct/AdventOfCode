@@ -13,12 +13,17 @@ IPv7
 
 INFILE = 'd7.txt'
 # INFILE = 'd7t1.txt'
+# INFILE = 'd7t2.txt'
 
 
 # Libraries:
 from collections import deque
 from pathlib import Path
+import re
 from string import ascii_lowercase as lowercase
+
+# 3rd party:
+from more_itertools import sliding_window
 
 
 # Module:
@@ -74,14 +79,65 @@ def get_tlscount(addrs: list[str]) -> int:
     return count
 
 
+def get_sslcandidates(group: str, inout: bool=False) -> list[tuple[str, str, str]]:
+    candidates = sliding_window(group, 3)
+    if not inout:
+        return {
+            (first, second, third)
+            for first, second, third in candidates
+            if first == third and first != second
+        }
+    else:
+        return {
+            (second, first, second)
+            for first, second, third in candidates
+            if first == third and first != second
+        }
+
+
+def get_sslcount(addrs: list[str]) -> int:
+    '''
+    Examples:
+    aba[bab]xyz - yes
+    xyx[xyx]xyx - no
+    aaa[kek]eke - yes
+    zazbz[bzb]cdb - yes
+
+    ### Refactor to deal with this:
+    'rnqfzoisbqxbdlkgfh[lwlybvcsiupwnsyiljz]kmbgyaptjcsvwcltrdx[ntrpwgkrfeljpye]jxjdlgtntpljxaojufe'
+    Two groups - outside, inside
+    * odd groups are outside
+    * even groups are inside
+    ** gotcha - sequences can't span groups (e.g., can't have sequence from group1 and group3)
+    '''
+    count = 0
+    for addr in addrs:
+        before, within, after = re.split(r'\[|\]', addr)
+        before_candidates = get_sslcandidates(before)
+        within_candidates = get_sslcandidates(within, inout=True)
+        after_candidates = get_sslcandidates(after)
+        candidate = any(group in within_candidates for group in before_candidates) or any(
+            group in within_candidates for group in after_candidates)
+
+        if candidate:
+            count += 1
+
+    return count
+
+
 def main() -> None:
     addrs = []
     cwd = Path(__file__).parent
     with open(cwd/INFILE) as infile:
         addrs.extend(line.strip() for line in infile)
 
-    count = get_tlscount(addrs)
-    print(f'Found {count:,} IPs supporting TLS')
+    # Part 1:
+    # count = get_tlscount(addrs)
+    # print(f'Found {count:,} IPs supporting TLS')
+    #
+    # Part 2:
+    count = get_sslcount(addrs)
+    print(f'Found {count:,} IPs supporting SSL')
 
 
 if __name__ == '__main__':
