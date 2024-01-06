@@ -23,7 +23,7 @@ import re
 from string import ascii_lowercase as lowercase
 
 # 3rd party:
-from more_itertools import sliding_window
+from more_itertools import flatten, sliding_window
 
 
 # Module:
@@ -79,9 +79,9 @@ def get_tlscount(addrs: list[str]) -> int:
     return count
 
 
-def get_sslcandidates(group: str, inout: bool=False) -> list[tuple[str, str, str]]:
+def get_sslcandidates(group: str, inside: bool=False) -> set[tuple[str, str, str]]:
     candidates = sliding_window(group, 3)
-    if not inout:
+    if not inside:
         return {
             (first, second, third)
             for first, second, third in candidates
@@ -106,18 +106,21 @@ def get_sslcount(addrs: list[str]) -> int:
     ### Refactor to deal with this:
     'rnqfzoisbqxbdlkgfh[lwlybvcsiupwnsyiljz]kmbgyaptjcsvwcltrdx[ntrpwgkrfeljpye]jxjdlgtntpljxaojufe'
     Two groups - outside, inside
-    * odd groups are outside
-    * even groups are inside
+    * even groups are outside (0, 2, ...)
+    * odd groups are inside (1, 3, ...)
     ** gotcha - sequences can't span groups (e.g., can't have sequence from group1 and group3)
     '''
     count = 0
     for addr in addrs:
-        before, within, after = re.split(r'\[|\]', addr)
-        before_candidates = get_sslcandidates(before)
-        within_candidates = get_sslcandidates(within, inout=True)
-        after_candidates = get_sslcandidates(after)
-        candidate = any(group in within_candidates for group in before_candidates) or any(
-            group in within_candidates for group in after_candidates)
+        outside = []
+        inside = []
+        for i, block in enumerate(re.split(r'\[|\]', addr)):
+            outside.append(block) if i % 2 == 0 else inside.append(block)
+
+        outside_candidates = list(flatten(get_sslcandidates(candidate) for candidate in outside))
+        inside_candidates = set(flatten(get_sslcandidates(candidate, inside=True)
+                                        for candidate in inside))
+        candidate = any(group in inside_candidates for group in outside_candidates)
 
         if candidate:
             count += 1
@@ -126,7 +129,7 @@ def get_sslcount(addrs: list[str]) -> int:
 
 
 def main() -> None:
-    addrs = []
+    addrs: list[str] = []
     cwd = Path(__file__).parent
     with open(cwd/INFILE) as infile:
         addrs.extend(line.strip() for line in infile)
