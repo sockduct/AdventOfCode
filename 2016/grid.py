@@ -1,5 +1,10 @@
 #! /usr/bin/env python3
 
+#
+# To do:
+# * Fix mypy errors - not sure how to fix some of them, so just ignored
+#   See # type: ...
+#
 
 '''
 Simple grid class
@@ -7,7 +12,7 @@ Simple grid class
 
 
 # Libraries
-from typing import Callable, NamedTuple, Sequence
+from typing import Any, Callable, NamedTuple, Sequence, cast
 
 
 class Values(NamedTuple):
@@ -17,9 +22,16 @@ class Values(NamedTuple):
 
 
 class Grid:
-    def __init__(self, x: int, y: int, val: type[bool|int]=bool):
+    def __init__(self, x: int, y: int, val: type[bool|int]=bool, x_str_max: int=10,
+                 y_str_max: int=10, alt_str_on: str='*', alt_str_off: str='.',
+                 alt_str: bool=False) -> None:
         self.x = x
         self.y = y
+        self.x_str_max = x_str_max
+        self.y_str_max = y_str_max
+        self.alt_str_on = alt_str_on
+        self.alt_str_off = alt_str_off
+        self.alt_str = alt_str
         if val.__name__ == 'bool':
             self.simple = True
             self.vals = Values(True, False, lambda x: not x)
@@ -39,14 +51,14 @@ class Grid:
         xover = False
         yover = False
 
-        if self.x > 10:
-            x = 10
+        if self.x > self.x_str_max:
+            x = self.x_str_max
             xover = True
         else:
             x = self.x
 
-        if self.y > 10:
-            y = 10
+        if self.y > self.y_str_max:
+            y = self.y_str_max
             yover = True
         else:
             y = self.y
@@ -54,7 +66,10 @@ class Grid:
         out = ''
         for row in range(y):
             for col in range(x):
-                out += f'{int(self.grid[row][col])}'
+                if self.alt_str:
+                    out += self.alt_str_on if self.grid[row][col] else self.alt_str_off
+                else:
+                    out += f'{int(self.grid[row][col])}'
             if xover:
                 out += '...'
             out += '\n'
@@ -63,6 +78,9 @@ class Grid:
             out += '...\n'
 
         return out
+
+    def altstr(self, state: bool) -> None:
+        self.alt_str = state
 
     def point(self, x: int, y: int) -> bool|int:
         return self.grid[y][x]
@@ -74,7 +92,8 @@ class Grid:
         return enabled, disabled
 
     def update(self, p1: int|Sequence[int], p2: int|Sequence[int], op: str) -> None:
-        # val: bool|int|Callable[[bool|int], bool|int]  # Doesn't fix type errors...
+        # val: bool|int|Callable[[bool|int], bool|int] # type: couldn't get right, using Any...
+        val: Any
         match op:
             case 'on':
                 if self.simple:
@@ -92,17 +111,18 @@ class Grid:
                     val = lambda x: x - 1 if x > 1 else 0
             case 'toggle':
                 alt = True
-                val = self.vals.toggle if self.simple else (lambda x: x + 2)
+                val = (self.vals.toggle if self.simple
+                       else (lambda x: x + 2)) # type: ignore[return-value]
             case _:
                 raise ValueError(f'Expected on|off|toggle, got "{op}"')
 
         # Could just look for a generic sequence or iterable:
         if isinstance(p1, (list, tuple)):
-            for y in range(p1[1], p2[1] + 1):
-                for x in range (p1[0], p2[0] + 1):
+            for y in range(p1[1], p2[1] + 1): # type: ignore[index]
+                for x in range (p1[0], p2[0] + 1): # type: ignore[index]
                     self.grid[y][x] = val(self.grid[y][x]) if alt else val
         else:
-            self.grid[p2][p1] = val(self.grid[p2][p1]) if alt else val
+            self.grid[p2][p1] = val(self.grid[p2][p1]) if alt else val # type: ignore [index]
 
     def on(self, p1: int|Sequence[int], p2: int|Sequence[int]) -> None:
         self.update(p1, p2, 'on')
@@ -115,7 +135,7 @@ class Grid:
 
     def rotate_row(self, row: int, amount: int) -> None:
         if amount > self.x:
-            amount %= x
+            amount %= self.x
 
         on = self.vals[0]
         off = self.vals[1]
@@ -132,7 +152,7 @@ class Grid:
 
     def rotate_col(self, col: int, amount: int) -> None:
         if amount > self.y:
-            amount %= y
+            amount %= self.y
 
         on = self.vals[0]
         off = self.vals[1]

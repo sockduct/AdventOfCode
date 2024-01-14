@@ -14,14 +14,15 @@ __pycache__/*
 # Temp/test output files:
 out*.txt
 *.out
+typetest.py
 
 # Solutions when stuck:
 *_sol.py
 
-# Not checking in output files for 2022:
+# Not checking in output files for solutions:
 20??/*.txt
 
-# Not checking in helper files for 2022 solutions:
+# Not checking in helper files for solutions:
 20??/*.xlsx
 20??/*.png
 

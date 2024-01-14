@@ -49,7 +49,7 @@ def get_gridsize(commands: list[str]) -> tuple[int, int]:
                 if col + 1 > max_x:
                     max_x = col + 1
             case _:
-                raise ValueError(f'Unexpected command:  {line}')
+                raise ValueError(f'Unexpected command:  {cmd}')
 
     return max_x, max_y
 
@@ -73,17 +73,24 @@ def parse_cmd(line: str, grid: Grid) -> None:
 
 
 def main(verbose: bool=True) -> None:
-    commands = []
+    commands: list[str] = []
     cwd = Path(__file__).parent
     with open(cwd/INFILE) as infile:
         commands.extend(line.strip() for line in infile)
 
-    # Hard code for initial test, then auto-detect:
+    # Hard code for initial test:
     # grid = Grid(7, 3)
+    #
+    # Problem states grid is 50x6:
+    grid = Grid(50, 6, x_str_max=50, alt_str_on='#', alt_str_off=' ', alt_str=True)
+
+    # Not needed - per problem statement, grid is 50x6:
+    '''
     cols, rows = get_gridsize(commands)
     if verbose:
         print(f'Based on commands, {cols} x {rows} grid will be created.')
-    grid = Grid(cols, rows)
+    grid = Grid(cols, rows, x_str_max=50)
+    '''
 
     for cmd in commands:
         parse_cmd(cmd, grid)
