@@ -16,6 +16,7 @@ Decompress string
 # INFILE = 'd9.txt'
 # INFILE = 'd9t1.txt'
 INFILE = 'd9t2.txt'
+# INFILE = 'd9t3.txt'
 
 
 # Libraries:
@@ -24,10 +25,12 @@ from reprlib import repr as altrepr
 
 
 # Module:
-def parse(line: str, *, recursive: bool=False) -> tuple[str, int]:
+def parse(line: str, *, recursive: bool=False, verbose: bool=False) -> tuple[str, int]:
     output = ''
     index = 0
-    while index < len(line):
+    loops = 0
+    while index < (cur_len := len(line)):
+        loops += 1
         start = line.find('(', index)
         if start >= 0:
             end = line.find(')', start)
@@ -46,11 +49,78 @@ def parse(line: str, *, recursive: bool=False) -> tuple[str, int]:
                 index = line.find('(')
                 if index == -1:
                     index = len(output)
+
+            if verbose and loops % 1_000 == 0:
+                print(f'{loops:,} iterations, at position {index:,} of {cur_len:,} {(index/cur_len) * 100:.2f}')
         else:
             output += line[index:]
             break
 
     return output, len(output)
+
+
+def section_len(line: str, start: int) -> tuple[int, int]:
+    '''
+    Examples:
+    * (27x12)(20x12)(13x14)(7x10)(1x12)A decompresses into a string of A repeated 241,920 times.
+    * (25x3)(3x3)ABC(2x3)XY(5x2)PQRSTX(18x9)(3x2)TWO(5x7)SEVEN becomes 445 characters long.
+    '''
+
+    end = line.find(')', start)
+    count, repeat = [int(n) for n in line[start + 1:end].split('x')]
+
+    seclen = 0
+    interimlen = 0
+    while True:
+        next_start = line.find('(', end + 1, end + 1 + count)
+        if next_start >= 0:
+            seclen += next_start - end - 1 # len(line[start:next_start])
+            next_seclen, index = section_len(line, next_start)
+            interimlen += next_seclen
+            end = index - 1
+        else:
+            # seclen += (count * repeat)
+            seclen += (interimlen * repeat)
+            break
+
+    # seclen += (next_seclen * repeat)
+
+    # index = end + 1 + count
+    index = end + 1
+
+    return seclen, index
+
+
+def parse2(line: str, *, verbose: bool=False) -> int:
+    '''
+    Optimized for fast, recursive calculations
+
+    Examples:
+    (27x12)(20x12)(13x14)(7x10)(1x12)A decompresses into a string of A repeated 241,920 times.
+    (25x3)(3x3)ABC(2x3)XY(5x2)PQRSTX(18x9)(3x2)TWO(5x7)SEVEN becomes 445 characters long.
+
+    ### Need to think through algorithmically:
+    * For each step, what are the possibilities?
+    * How do you deal with each one?
+    '''
+    outlen = 0
+    index = 0
+    loops = 0
+    while index < (cur_len := len(line)):
+        loops += 1
+        start = line.find('(', index)
+        if start >= 0:
+            outlen += len(line[:start])
+            seclen, index = section_len(line, start)
+            outlen += seclen
+
+            if verbose and loops % 1_000 == 0:
+                print(f'{loops:,} iterations, at position {index:,} of {cur_len:,} {(index/cur_len) * 100:.2f}')
+        else:
+            outlen += len(line[index:])
+            break
+
+    return outlen
 
 
 def main() -> None:
@@ -63,8 +133,10 @@ def main() -> None:
             # Part 2:
             ### Too slow - need alternate approach.  Maybe just find markers and
             ### calculate number of characters?
-            res = parse(line.strip(), recursive=True)
-            print(f'Decompressed "{altrepr(line.strip())}" to "{altrepr(res[0])}", length is {res[1]:,}')
+            # res = parse(line.strip(), recursive=True, verbose=True)
+            # print(f'Decompressed "{altrepr(line.strip())}" to "{altrepr(res[0])}", length is {res[1]:,}')
+            res = parse2(line.strip(), verbose=True)
+            print(f'Decompressed "{altrepr(line.strip())}", length is {res:,}')
 
 
 if __name__ == '__main__':
