@@ -59,34 +59,46 @@ def parse(line: str, *, recursive: bool=False, verbose: bool=False) -> tuple[str
     return output, len(output)
 
 
-def section_len(line: str, start: int) -> tuple[int, int]:
+def section_len(line: str, start: int, secend: int|None=None) -> tuple[int, int]:
     '''
     Examples:
     * (27x12)(20x12)(13x14)(7x10)(1x12)A decompresses into a string of A repeated 241,920 times.
     * (25x3)(3x3)ABC(2x3)XY(5x2)PQRSTX(18x9)(3x2)TWO(5x7)SEVEN becomes 445 characters long.
     '''
 
+    ### Not counting characters between parentheses on bottom case...
     end = line.find(')', start)
     count, repeat = [int(n) for n in line[start + 1:end].split('x')]
 
+    if not secend:
+        secend = end + 1 + count
     seclen = 0
     interimlen = 0
+    end_adj = False
     while True:
-        next_start = line.find('(', end + 1, end + 1 + count)
+        next_start = line.find('(', end + 1, secend)
         if next_start >= 0:
             seclen += next_start - end - 1 # len(line[start:next_start])
-            next_seclen, index = section_len(line, next_start)
+            next_seclen, index = section_len(line, next_start, secend)
             interimlen += next_seclen
             end = index - 1
+            end_adj = True
         else:
             # seclen += (count * repeat)
-            seclen += (interimlen * repeat)
+            if interimlen:
+                seclen += interimlen * repeat
+            else:
+                seclen += count * repeat
+            # seclen += ((interimlen + count) * repeat)
             break
 
     # seclen += (next_seclen * repeat)
 
-    # index = end + 1 + count
-    index = end + 1
+    if end_adj:
+        index = end + 1
+    else:
+        index = end + 1 + count
+    # index = end + 1
 
     return seclen, index
 
@@ -105,17 +117,12 @@ def parse2(line: str, *, verbose: bool=False) -> int:
     '''
     outlen = 0
     index = 0
-    loops = 0
-    while index < (cur_len := len(line)):
-        loops += 1
+    while index < len(line):
         start = line.find('(', index)
         if start >= 0:
-            outlen += len(line[:start])
+            outlen += len(line[index:start])
             seclen, index = section_len(line, start)
             outlen += seclen
-
-            if verbose and loops % 1_000 == 0:
-                print(f'{loops:,} iterations, at position {index:,} of {cur_len:,} {(index/cur_len) * 100:.2f}')
         else:
             outlen += len(line[index:])
             break
