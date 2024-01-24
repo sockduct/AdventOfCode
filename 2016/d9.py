@@ -130,6 +130,66 @@ def parse2(line: str, *, verbose: bool=False) -> int:
     return outlen
 
 
+def section_len2(line: str) -> int:
+    '''
+    Examples:
+    (20x12)(13x14)(7x10)(1x12)A
+    (3x3)ABC(2x3)XY(5x2)PQRST
+    '''
+    seclen = 0
+    index = len(line) - 1
+    while index >= 0:
+        end = line.rfind(')', None, index + 1)
+        if end >= 0:
+            start = line.rfind('(', None, end)
+            count, repeat = [int(n) for n in line[start + 1:end].split('x')]
+
+            remaining = len(line[end + 1:index + 1])
+            if count > remaining and count > seclen:
+                raise ValueError(f'For section "{line}", count of {count} goes past '
+                                 'end of section.')
+            elif count < remaining:
+                raise ValueError(f'For section "{line}", count of {count} is less '
+                                 'than remaining part of section.')
+
+            seclen += count * repeat
+            index = start - 1
+        else:
+            seclen += len(line[:index + 1])
+            break
+
+    return seclen
+
+
+def parse3(line: str) -> int:
+    '''
+    Optimized for fast, recursive calculations
+
+    Examples:
+    (27x12)(20x12)(13x14)(7x10)(1x12)A decompresses into a string of A repeated 241,920 times.
+    (25x3)(3x3)ABC(2x3)XY(5x2)PQRSTX(18x9)(3x2)TWO(5x7)SEVEN becomes 445 characters long.
+    '''
+    # When backtracking - have to figure out if previous parenthetical pair includes pair to
+    # right (*) or not (+) and calculate accordingly.
+    outlen = 0
+    index = 0
+    while index < len(line):
+        start = line.find('(', index)
+        if start >= 0:
+            end = line.find(')', start)
+            count, repeat = [int(n) for n in line[start + 1:end].split('x')]
+
+            outlen += len(line[index:start])
+            seclen = section_len2(line[end + 1:end + 1 + count])
+            outlen += seclen * repeat
+            index = end + 1 + count
+        else:
+            outlen += len(line[index:])
+            break
+
+    return outlen
+
+
 def main() -> None:
     cwd = Path(__file__).parent
     with open(cwd/INFILE) as infile:
@@ -142,7 +202,9 @@ def main() -> None:
             ### calculate number of characters?
             # res = parse(line.strip(), recursive=True, verbose=True)
             # print(f'Decompressed "{altrepr(line.strip())}" to "{altrepr(res[0])}", length is {res[1]:,}')
-            res = parse2(line.strip(), verbose=True)
+            # res = parse2(line.strip(), verbose=True)
+            # print(f'Decompressed "{altrepr(line.strip())}", length is {res:,}')
+            res = parse3(line.strip())
             print(f'Decompressed "{altrepr(line.strip())}", length is {res:,}')
 
 
