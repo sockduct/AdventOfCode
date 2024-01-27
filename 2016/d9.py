@@ -13,9 +13,9 @@ Decompress string
 '''
 
 
-# INFILE = 'd9.txt'
+INFILE = 'd9.txt'
 # INFILE = 'd9t1.txt'
-INFILE = 'd9t2.txt'
+# INFILE = 'd9t2.txt'
 # INFILE = 'd9t3.txt'
 
 
@@ -130,35 +130,64 @@ def parse2(line: str, *, verbose: bool=False) -> int:
     return outlen
 
 
+def consolidate(index: tuple[int, int], pairs: dict[tuple[int, int], int]) -> int:
+    ...
+
+
 def section_len2(line: str) -> int:
     '''
     Examples:
+    012345678901234567890123456
     (20x12)(13x14)(7x10)(1x12)A
     (3x3)ABC(2x3)XY(5x2)PQRST
     '''
+    pairs = {}
+    total = 0
     seclen = 0
-    index = len(line) - 1
+    strlen = len(line)
+    index = strlen - 1
     while index >= 0:
+        # everything = False
         end = line.rfind(')', None, index + 1)
         if end >= 0:
             start = line.rfind('(', None, end)
             count, repeat = [int(n) for n in line[start + 1:end].split('x')]
 
             remaining = len(line[end + 1:index + 1])
-            if count > remaining and count > seclen:
-                raise ValueError(f'For section "{line}", count of {count} goes past '
-                                 'end of section.')
+
+            if count == remaining:
+                # total += remaining - count
+                seclen = count * repeat
             elif count < remaining:
                 raise ValueError(f'For section "{line}", count of {count} is less '
                                  'than remaining part of section.')
+            # elif count > remaining and count > seclen:
+            elif (index := (end + 1, end + count)) in pairs:
+                seclen = pairs[index] * repeat
+                '''
+                if end + count + 1 == strlen:
+                    everything = True
+                '''
+            elif index[0] in (key[0] for key in pairs) and index[1] in (key[1] for key in pairs):
+                seclen = consolidate(index, pairs)
+            else:
+                raise ValueError(f'For section "{line}", count of {count} goes past '
+                                 'end of section.')
 
-            seclen += count * repeat
+            pairs[(start, end + count)] = seclen
+            '''
+            if everything:
+                total = seclen
+            else:
+                total += seclen
+            '''
             index = start - 1
         else:
-            seclen += len(line[:index + 1])
+            total += len(line[:index + 1])
             break
 
-    return seclen
+    total += sum(pairs.values())
+    return total
 
 
 def parse3(line: str) -> int:
