@@ -130,8 +130,32 @@ def parse2(line: str, *, verbose: bool=False) -> int:
     return outlen
 
 
+def remove_overlap(index: tuple[int, int], pairs: dict[tuple[int, int], int]) -> None:
+    '''
+    Passed index could overlap existing tuples - remove those
+
+    Example:
+    * index = (5, 15); pairs = {(5, 15): 50, (11, 15): 30}
+    * Remove overlapped items:  pairs = {(5, 15): 50}
+    '''
+    for key in sorted(pairs):
+        if key[0] > index[0] and key[1] <= index[1]:
+            pairs.pop(key)
+
+
 def consolidate(index: tuple[int, int], pairs: dict[tuple[int, int], int]) -> int:
-    ...
+    '''
+    Passed index includes multiple tuples in dict - need to consolidate by
+    addition.
+
+    Example:
+    * index = (5, 15); pairs = {(5, 10): 20, (11, 15): 30}
+    * Consolidate to:  pairs = {(5, 15): 50}, return 50
+    '''
+    targets = [key for key in sorted(pairs) if key[0] >= index[0] and key[1] <= index[1]]
+    pairs[index] = sum(pairs.pop(target) for target in targets)
+
+    return pairs[index]
 
 
 def section_len2(line: str) -> int:
@@ -174,7 +198,9 @@ def section_len2(line: str) -> int:
                 raise ValueError(f'For section "{line}", count of {count} goes past '
                                  'end of section.')
 
-            pairs[(start, end + count)] = seclen
+            index = (start, end + count)
+            pairs[index] = seclen
+            remove_overlap(index, pairs)
             '''
             if everything:
                 total = seclen
