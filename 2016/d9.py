@@ -17,11 +17,14 @@ INFILE = 'd9.txt'
 # INFILE = 'd9t1.txt'
 # INFILE = 'd9t2.txt'
 # INFILE = 'd9t3.txt'
+# INFILE = 'd9t4.txt'
 
 
 # Libraries:
+from math import prod
 from pathlib import Path
 from reprlib import repr as altrepr
+from string import ascii_uppercase as uppers
 
 
 # Module:
@@ -223,6 +226,8 @@ def parse3(line: str) -> int:
     Examples:
     (27x12)(20x12)(13x14)(7x10)(1x12)A decompresses into a string of A repeated 241,920 times.
     (25x3)(3x3)ABC(2x3)XY(5x2)PQRSTX(18x9)(3x2)TWO(5x7)SEVEN becomes 445 characters long.
+    ORNXNQJQ(151x7)(5x9)OFIXU(27x3)(21x9)VDCYQELDJQUAFZUHFZVSU(34x15)(12x10)SEDIUUVFPEKY(3x9)
+        NHR(1x11)I(15x6)(9x13)CMNDUYGYR(40x6)(4x7)RMNG(25x8)XPDSEYNCWFQFAKUMITWMBLMIK
     '''
     # When backtracking - have to figure out if previous parenthetical pair includes pair to
     # right (*) or not (+) and calculate accordingly.
@@ -245,6 +250,55 @@ def parse3(line: str) -> int:
     return outlen
 
 
+def get_secval(line: str, stack: list, offset: int) -> int:
+    'Calculate section value'
+    val = 0
+    for char in line:
+        if char not in uppers:
+            raise ValueError(f'Expected value in A-Z, got:  {line[index]}')
+
+        val += prod(s[2] for s in stack if s[0] <= offset <= s[1])
+        offset += 1
+
+    return val
+
+
+def parse4(line: str) -> int:
+    '''
+    Stack-based calculator
+
+    Examples:
+    (27x12)(20x12)(13x14)(7x10)(1x12)A decompresses into a string of A repeated 241,920 times.
+    (25x3)(3x3)ABC(2x3)XY(5x2)PQRSTX(18x9)(3x2)TWO(5x7)SEVEN becomes 445 characters long.
+    ORNXNQJQ(151x7)(5x9)OFIXU(27x3)(21x9)VDCYQELDJQUAFZUHFZVSU(34x15)(12x10)SEDIUUVFPEKY(3x9)
+        NHR(1x11)I(15x6)(9x13)CMNDUYGYR(40x6)(4x7)RMNG(25x8)XPDSEYNCWFQFAKUMITWMBLMIK
+    '''
+    stack = []
+    index = 0
+    outlen = 0
+    while index < len(line):
+        start = line.find('(', index)
+        if start >= 0:
+            end = line.find(')', start)
+            count, repeat = [int(n) for n in line[start + 1:end].split('x')]
+            stack.append((end + 1, end + count, repeat))
+
+            if not stack:
+                outlen += len(line[index:start])
+            else:
+                outlen += get_secval(line[index:start], stack, index)
+
+            index = end + 1
+        else:
+            if not stack:
+                outlen += len(line[index:])
+            else:
+                outlen += get_secval(line[index:], stack, index)
+            break
+
+    return outlen
+
+
 def main() -> None:
     cwd = Path(__file__).parent
     with open(cwd/INFILE) as infile:
@@ -259,7 +313,8 @@ def main() -> None:
             # print(f'Decompressed "{altrepr(line.strip())}" to "{altrepr(res[0])}", length is {res[1]:,}')
             # res = parse2(line.strip(), verbose=True)
             # print(f'Decompressed "{altrepr(line.strip())}", length is {res:,}')
-            res = parse3(line.strip())
+            # res = parse3(line.strip())
+            res = parse4(line.strip())
             print(f'Decompressed "{altrepr(line.strip())}", length is {res:,}')
 
 
