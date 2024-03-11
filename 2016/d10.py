@@ -41,9 +41,17 @@ class Bot:
         else:
             raise ValueError('Error:  Bot already has low and high values')
 
+    def empty(self) -> None:
+        self.low = None
+        self.high = None
+
+    def full(self) -> bool:
+        return isinstance(self.low, int) and isinstance(self.high, int)
+
 
 # Module:
-def parse(line: str, instr: dict[str, tuple[str, str]], bots: dict[str, Bot]) -> None:
+def parse(line: str, instr: dict[str, tuple[str, str]], bots: dict[str, Bot],
+          outputs: dict[str, str]) -> None:
     '''
     Cases:
     * value # goes to bot #
@@ -61,19 +69,53 @@ def parse(line: str, instr: dict[str, tuple[str, str]], bots: dict[str, Bot]) ->
     '''
     match line.split():
         case 'value', val, 'goes', 'to', 'bot', botnum:
-            ...
+            bots[botnum] = Bot(val)
         case ('bot', procbotnum, 'gives', 'low', 'to', 'bot', lowbotnum, 'and',
               'high', 'to', 'bot', highbotnum):
-            ...
+            if not bots[procbotnum].full():
+                raise IndexError(f'Error:  bot {procbotnum} ({bots[procbotnum]}) not full.')
+
+            bots[lowbotnum] = bots[procbotnum].low
+            bots[highbotnum] = bots[procbotnum].high
+            bots[procbotnum].empty()
         case ('bot', procbotnum, 'gives', 'low', 'to', 'output', lowoutnum, 'and',
               'high', 'to', 'bot', highbotnum):
-            ...
+            if not bots[procbotnum].full():
+                raise IndexError(f'Error:  bot {procbotnum} ({bots[procbotnum]}) not full.')
+
+            if lowoutnum in outputs:
+                raise ValueError(f'Error:  Output bin {lowoutnum} already has value '
+                                 f'{outputs[lowoutnum]}.')
+
+            outputs[lowoutnum] = bots[procbotnum].low
+            bots[highbotnum] = bots[procbotnum].high
+            bots[procbotnum].empty()
         case ('bot', procbotnum, 'gives', 'low', 'to', 'bot', lowbotnum, 'and',
               'high', 'to', 'output', highoutnum):
-            ...
+            if not bots[procbotnum].full():
+                raise IndexError(f'Error:  bot {procbotnum} ({bots[procbotnum]}) not full.')
+
+            if highoutnum in outputs:
+                raise ValueError(f'Error:  Output bin {highoutnum} already has value '
+                                 f'{outputs[highoutnum]}.')
+
+            bots[lowbotnum] = bots[procbotnum].low
+            outputs[highoutnum] = bots[procbotnum].high
         case ('bot', procbotnum, 'gives', 'low', 'to', 'output', lowoutnum, 'and',
               'high', 'to', 'output', highoutnum):
-            ...
+            if not bots[procbotnum].full():
+                raise IndexError(f'Error:  bot {procbotnum} ({bots[procbotnum]}) not full.')
+
+            if lowoutnum in outputs:
+                raise ValueError(f'Error:  Output bin {lowoutnum} already has value '
+                                 f'{outputs[lowoutnum]}.')
+
+            if highoutnum in outputs:
+                raise ValueError(f'Error:  Output bin {highoutnum} already has value '
+                                 f'{outputs[highoutnum]}.')
+
+            outputs[lowoutnum] = bots[procbotnum].low
+            outputs[highoutnum] = bots[procbotnum].high
         case _:
             raise ValueError(f'Unexpected input:  {line}')
 
@@ -86,7 +128,7 @@ def main() -> None:
     cwd = Path(__file__).parent
     with open(cwd/INFILE) as infile:
         for line in infile:
-            parse(line.strip())
+            parse(line.strip(), instr, bots, outputs)
 
 
 if __name__ == '__main__':
