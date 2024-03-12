@@ -18,21 +18,22 @@ INFILE = 'd10t1.txt'
 # Libraries
 from dataclasses import dataclass
 from pathlib import Path
+from pprint import pprint
 
 
 # Types:
 @dataclass
 class Bot:
-    low: int|None = None
-    high: int|None = None
+    low: str|None = None
+    high: str|None = None
 
-    def add(self, val: int):
+    def add(self, val: str):
         if self.low is None:
             self.low = val
         elif self.high is None:
-            if val > self.low:
+            if int(val) > int(self.low):
                 self.high = val
-            elif val < self.low:
+            elif int(val) < int(self.low):
                 self.high = self.low
                 self.low = val
             elif val == self.low:
@@ -46,12 +47,11 @@ class Bot:
         self.high = None
 
     def full(self) -> bool:
-        return isinstance(self.low, int) and isinstance(self.high, int)
+        return self.low and self.high
 
 
 # Module:
-def parse(line: str, instr: dict[str, tuple[str, str]], bots: dict[str, Bot],
-          outputs: dict[str, str]) -> None:
+def parse(line: str, instr: dict[str, tuple[str, str, str]], bots: dict[str, Bot]) -> None:
     '''
     Cases:
     * value # goes to bot #
@@ -69,66 +69,120 @@ def parse(line: str, instr: dict[str, tuple[str, str]], bots: dict[str, Bot],
     '''
     match line.split():
         case 'value', val, 'goes', 'to', 'bot', botnum:
-            bots[botnum] = Bot(val)
+            if botnum in bots:
+                bots[botnum].add(val)
+            else:
+                bots[botnum] = Bot(val)
         case ('bot', procbotnum, 'gives', 'low', 'to', 'bot', lowbotnum, 'and',
               'high', 'to', 'bot', highbotnum):
-            if not bots[procbotnum].full():
-                raise IndexError(f'Error:  bot {procbotnum} ({bots[procbotnum]}) not full.')
+            if procbotnum in instr:
+                raise ValueError(f'Error:  Bot {procbotnum} already in instruction set!')
 
-            bots[lowbotnum] = bots[procbotnum].low
-            bots[highbotnum] = bots[procbotnum].high
-            bots[procbotnum].empty()
+            instr[procbotnum] = ('bb', lowbotnum, highbotnum)
         case ('bot', procbotnum, 'gives', 'low', 'to', 'output', lowoutnum, 'and',
               'high', 'to', 'bot', highbotnum):
-            if not bots[procbotnum].full():
-                raise IndexError(f'Error:  bot {procbotnum} ({bots[procbotnum]}) not full.')
+            if procbotnum in instr:
+                raise ValueError(f'Error:  Bot {procbotnum} already in instruction set!')
 
-            if lowoutnum in outputs:
-                raise ValueError(f'Error:  Output bin {lowoutnum} already has value '
-                                 f'{outputs[lowoutnum]}.')
-
-            outputs[lowoutnum] = bots[procbotnum].low
-            bots[highbotnum] = bots[procbotnum].high
-            bots[procbotnum].empty()
+            instr[procbotnum] = ('ob', lowoutnum, highbotnum)
         case ('bot', procbotnum, 'gives', 'low', 'to', 'bot', lowbotnum, 'and',
               'high', 'to', 'output', highoutnum):
-            if not bots[procbotnum].full():
-                raise IndexError(f'Error:  bot {procbotnum} ({bots[procbotnum]}) not full.')
+            if procbotnum in instr:
+                raise ValueError(f'Error:  Bot {procbotnum} already in instruction set!')
 
-            if highoutnum in outputs:
-                raise ValueError(f'Error:  Output bin {highoutnum} already has value '
-                                 f'{outputs[highoutnum]}.')
-
-            bots[lowbotnum] = bots[procbotnum].low
-            outputs[highoutnum] = bots[procbotnum].high
+            instr[procbotnum] = ('bo', lowbotnum, highoutnum)
         case ('bot', procbotnum, 'gives', 'low', 'to', 'output', lowoutnum, 'and',
               'high', 'to', 'output', highoutnum):
-            if not bots[procbotnum].full():
-                raise IndexError(f'Error:  bot {procbotnum} ({bots[procbotnum]}) not full.')
+            if procbotnum in instr:
+                raise ValueError(f'Error:  Bot {procbotnum} already in instruction set!')
 
-            if lowoutnum in outputs:
-                raise ValueError(f'Error:  Output bin {lowoutnum} already has value '
-                                 f'{outputs[lowoutnum]}.')
-
-            if highoutnum in outputs:
-                raise ValueError(f'Error:  Output bin {highoutnum} already has value '
-                                 f'{outputs[highoutnum]}.')
-
-            outputs[lowoutnum] = bots[procbotnum].low
-            outputs[highoutnum] = bots[procbotnum].high
+            instr[procbotnum] = ('oo', lowoutnum, highoutnum)
         case _:
             raise ValueError(f'Unexpected input:  {line}')
 
 
-def main() -> None:
+def process(instr: dict[str, tuple[str, str, str]], bots: dict[str, Bot],
+            outputs: dict[str, str], compares: dict[str, tuple[str, str]]) -> None:
+    '''
+    ### Rather than iterating through instructions, iterate through bots and only
+    ### process if they are full!
+    '''
+    for bot, (dest, lval, hval) in instr.items():
+        if not bots[bot].full():
+            raise IndexError(f'Error:  bot {bot} ({bots[bot]}) not full.')
+
+        # Record comparison:
+        if bot in compares:
+            raise ValueError(f'Error:  bot {bot} already recorded in compares ({compares[bot]}).')
+        compares[bot] = (bots[bot].low, bots[bot].high)
+
+        match dest:
+            case 'oo':
+                if lval in outputs:
+                    raise ValueError(f'Error:  Output bin {lval} already has value {outputs[lval]}.')
+                if hval in outputs:
+                    raise ValueError(f'Error:  Output bin {hval} already has value {outputs[hval]}.')
+
+                outputs[lval] = bots[bot].low
+                outputs[hval] = bots[bot].high
+            case 'ob':
+                if lval in outputs:
+                    raise ValueError(f'Error:  Output bin {lval} already has value {outputs[lval]}.')
+
+                outputs[lval] = bots[bot].low
+                if hval in bots:
+                    bots[hval].add(bots[bot].high)
+                else:
+                    bots[hval] = Bot(bots[bot].high)
+            case 'bo':
+                if hval in outputs:
+                    raise ValueError(f'Error:  Output bin {hval} already has value {outputs[hval]}.')
+
+                if lval in bots:
+                    bots[lval].add(bots[bot].low)
+                else:
+                    bots[lval] = Bot(bots[bot].low)
+                outputs[hval] = bots[bot].high
+            case 'bb':
+                if lval in bots:
+                    bots[lval].add(bots[bot].low)
+                else:
+                    bots[lval] = Bot(bots[bot].low)
+                if hval in bots:
+                    bots[hval].add(bots[bot].high)
+                else:
+                    bots[hval] = Bot(bots[bot].high)
+            case _:
+                raise ValueError(f'Unexpected destination:  {dest}')
+
+        bots[bot].empty()
+
+
+def main(verbose: bool=True) -> None:
     instr = {}
     bots = {}
-    outputs = {}
-    compares = {}
     cwd = Path(__file__).parent
     with open(cwd/INFILE) as infile:
         for line in infile:
-            parse(line.strip(), instr, bots, outputs)
+            parse(line.strip(), instr, bots)
+
+    if verbose:
+        print('Instructions:')
+        pprint(instr)
+        print('\nBots:')
+        pprint(bots)
+
+    outputs = {}
+    compares = {}
+    process(instr, bots, outputs, compares)
+
+    if verbose:
+        print('Bots:')
+        pprint(bots)
+        print('\nOutputs:')
+        pprint(outputs)
+        print('\nCompares:')
+        pprint(compares)
 
 
 if __name__ == '__main__':
