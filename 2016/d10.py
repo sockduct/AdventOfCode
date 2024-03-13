@@ -11,11 +11,12 @@ Bots and Chips
 '''
 
 
-# INFILE = 'd10.txt'
-INFILE = 'd10t1.txt'
+INFILE = 'd10.txt'
+# INFILE = 'd10t1.txt'
 
 
 # Libraries
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from pprint import pprint
@@ -101,61 +102,74 @@ def parse(line: str, instr: dict[str, tuple[str, str, str]], bots: dict[str, Bot
             raise ValueError(f'Unexpected input:  {line}')
 
 
+def dispatch(bot: str, bots: dict[str, Bot], instr: dict[str, tuple[str, str, str]],
+             outputs: dict[str, str]) -> None:
+    dest, lval, hval = instr[bot]
+    match dest:
+        case 'oo':
+            if lval in outputs:
+                raise ValueError(f'Error:  Output bin {lval} already has value {outputs[lval]}.')
+            if hval in outputs:
+                raise ValueError(f'Error:  Output bin {hval} already has value {outputs[hval]}.')
+
+            outputs[lval] = bots[bot].low
+            outputs[hval] = bots[bot].high
+        case 'ob':
+            if lval in outputs:
+                raise ValueError(f'Error:  Output bin {lval} already has value {outputs[lval]}.')
+
+            outputs[lval] = bots[bot].low
+            if hval in bots:
+                bots[hval].add(bots[bot].high)
+            else:
+                bots[hval] = Bot(bots[bot].high)
+        case 'bo':
+            if hval in outputs:
+                raise ValueError(f'Error:  Output bin {hval} already has value {outputs[hval]}.')
+
+            if lval in bots:
+                bots[lval].add(bots[bot].low)
+            else:
+                bots[lval] = Bot(bots[bot].low)
+            outputs[hval] = bots[bot].high
+        case 'bb':
+            if lval in bots:
+                bots[lval].add(bots[bot].low)
+            else:
+                bots[lval] = Bot(bots[bot].low)
+            if hval in bots:
+                bots[hval].add(bots[bot].high)
+            else:
+                bots[hval] = Bot(bots[bot].high)
+        case _:
+            raise ValueError(f'Unexpected destination:  {dest}')
+
+
 def process(instr: dict[str, tuple[str, str, str]], bots: dict[str, Bot],
             outputs: dict[str, str], compares: dict[str, tuple[str, str]]) -> None:
     '''
-    ### Rather than iterating through instructions, iterate through bots and only
-    ### process if they are full!
+    First pass - iterated through instructions.  Works on test case but not on
+    actual data.  After re-reading the scenario, need to iteration through bots
+    and only process a bot if it's full.
     '''
-    for bot, (dest, lval, hval) in instr.items():
-        if not bots[bot].full():
-            raise IndexError(f'Error:  bot {bot} ({bots[bot]}) not full.')
+    loop = True
+    while loop:
+        loop = False
+        # Make a copy as can't modify dictionary you're iterating through:
+        loop_bots = deepcopy(bots)
+        for bot, bvals in loop_bots.items():
+            if bvals.full():
+                loop = True
 
-        # Record comparison:
-        if bot in compares:
-            raise ValueError(f'Error:  bot {bot} already recorded in compares ({compares[bot]}).')
-        compares[bot] = (bots[bot].low, bots[bot].high)
+                # Record comparison:
+                if bot in compares:
+                    raise ValueError(f'Error:  bot {bot} already recorded in compares '
+                                     f'({compares[bot]}).')
+                compares[bot] = (bots[bot].low, bots[bot].high)
 
-        match dest:
-            case 'oo':
-                if lval in outputs:
-                    raise ValueError(f'Error:  Output bin {lval} already has value {outputs[lval]}.')
-                if hval in outputs:
-                    raise ValueError(f'Error:  Output bin {hval} already has value {outputs[hval]}.')
-
-                outputs[lval] = bots[bot].low
-                outputs[hval] = bots[bot].high
-            case 'ob':
-                if lval in outputs:
-                    raise ValueError(f'Error:  Output bin {lval} already has value {outputs[lval]}.')
-
-                outputs[lval] = bots[bot].low
-                if hval in bots:
-                    bots[hval].add(bots[bot].high)
-                else:
-                    bots[hval] = Bot(bots[bot].high)
-            case 'bo':
-                if hval in outputs:
-                    raise ValueError(f'Error:  Output bin {hval} already has value {outputs[hval]}.')
-
-                if lval in bots:
-                    bots[lval].add(bots[bot].low)
-                else:
-                    bots[lval] = Bot(bots[bot].low)
-                outputs[hval] = bots[bot].high
-            case 'bb':
-                if lval in bots:
-                    bots[lval].add(bots[bot].low)
-                else:
-                    bots[lval] = Bot(bots[bot].low)
-                if hval in bots:
-                    bots[hval].add(bots[bot].high)
-                else:
-                    bots[hval] = Bot(bots[bot].high)
-            case _:
-                raise ValueError(f'Unexpected destination:  {dest}')
-
-        bots[bot].empty()
+                # Look up bot instructions to dispatch values:
+                dispatch(bot, bots, instr, outputs)
+                bots[bot].empty()
 
 
 def main(verbose: bool=True) -> None:
@@ -167,6 +181,7 @@ def main(verbose: bool=True) -> None:
             parse(line.strip(), instr, bots)
 
     if verbose:
+        print('Before:')
         print('Instructions:')
         pprint(instr)
         print('\nBots:')
@@ -177,12 +192,22 @@ def main(verbose: bool=True) -> None:
     process(instr, bots, outputs, compares)
 
     if verbose:
+        print('\nAfter:')
         print('Bots:')
         pprint(bots)
         print('\nOutputs:')
         pprint(outputs)
         print('\nCompares:')
         pprint(compares)
+
+    # Answer:
+    val1 = '17'
+    val2 = '61'
+    for key, vals in compares.items():
+        if vals[0] == val1 and vals[1] == val2 or (
+            vals[0] == val2 and vals[1] == val1
+        ):
+            print(f'\nBot {key} compared {val1} and {val2} microchips.')
 
 
 if __name__ == '__main__':
