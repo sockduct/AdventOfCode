@@ -18,6 +18,7 @@ INFILE = 'd10.txt'
 # Libraries
 from copy import deepcopy
 from dataclasses import dataclass
+from math import prod
 from pathlib import Path
 from pprint import pprint
 
@@ -28,7 +29,7 @@ class Bot:
     low: str|None = None
     high: str|None = None
 
-    def add(self, val: str):
+    def add(self, val: str) -> None:
         if self.low is None:
             self.low = val
         elif self.high is None:
@@ -48,7 +49,7 @@ class Bot:
         self.high = None
 
     def full(self) -> bool:
-        return self.low and self.high
+        return bool(self.low and self.high)
 
 
 # Module:
@@ -112,15 +113,16 @@ def dispatch(bot: str, bots: dict[str, Bot], instr: dict[str, tuple[str, str, st
             if hval in outputs:
                 raise ValueError(f'Error:  Output bin {hval} already has value {outputs[hval]}.')
 
-            outputs[lval] = bots[bot].low
-            outputs[hval] = bots[bot].high
+            # Dispatch only called if Bot full, thus don't need None check:
+            outputs[lval] = bots[bot].low   # type: ignore
+            outputs[hval] = bots[bot].high  # type: ignore
         case 'ob':
             if lval in outputs:
                 raise ValueError(f'Error:  Output bin {lval} already has value {outputs[lval]}.')
 
-            outputs[lval] = bots[bot].low
+            outputs[lval] = bots[bot].low  # type: ignore
             if hval in bots:
-                bots[hval].add(bots[bot].high)
+                bots[hval].add(bots[bot].high)  # type: ignore
             else:
                 bots[hval] = Bot(bots[bot].high)
         case 'bo':
@@ -128,17 +130,17 @@ def dispatch(bot: str, bots: dict[str, Bot], instr: dict[str, tuple[str, str, st
                 raise ValueError(f'Error:  Output bin {hval} already has value {outputs[hval]}.')
 
             if lval in bots:
-                bots[lval].add(bots[bot].low)
+                bots[lval].add(bots[bot].low)  # type: ignore
             else:
                 bots[lval] = Bot(bots[bot].low)
-            outputs[hval] = bots[bot].high
+            outputs[hval] = bots[bot].high  # type: ignore
         case 'bb':
             if lval in bots:
-                bots[lval].add(bots[bot].low)
+                bots[lval].add(bots[bot].low)  # type: ignore
             else:
                 bots[lval] = Bot(bots[bot].low)
             if hval in bots:
-                bots[hval].add(bots[bot].high)
+                bots[hval].add(bots[bot].high)  # type: ignore
             else:
                 bots[hval] = Bot(bots[bot].high)
         case _:
@@ -165,7 +167,9 @@ def process(instr: dict[str, tuple[str, str, str]], bots: dict[str, Bot],
                 if bot in compares:
                     raise ValueError(f'Error:  bot {bot} already recorded in compares '
                                      f'({compares[bot]}).')
-                compares[bot] = (bots[bot].low, bots[bot].high)
+
+                # Only get here if Bot full, so don't need None check:
+                compares[bot] = (bots[bot].low, bots[bot].high) # type: ignore
 
                 # Look up bot instructions to dispatch values:
                 dispatch(bot, bots, instr, outputs)
@@ -173,8 +177,8 @@ def process(instr: dict[str, tuple[str, str, str]], bots: dict[str, Bot],
 
 
 def main(verbose: bool=True) -> None:
-    instr = {}
-    bots = {}
+    instr: dict[str, tuple[str, str, str]] = {}
+    bots: dict[str, Bot] = {}
     cwd = Path(__file__).parent
     with open(cwd/INFILE) as infile:
         for line in infile:
@@ -187,8 +191,8 @@ def main(verbose: bool=True) -> None:
         print('\nBots:')
         pprint(bots)
 
-    outputs = {}
-    compares = {}
+    outputs: dict[str, str] = {}
+    compares: dict[str, tuple[str, str]] = {}
     process(instr, bots, outputs, compares)
 
     if verbose:
@@ -200,7 +204,7 @@ def main(verbose: bool=True) -> None:
         print('\nCompares:')
         pprint(compares)
 
-    # Answer:
+    # Answer, part 1:
     val1 = '17'
     val2 = '61'
     for key, vals in compares.items():
@@ -208,6 +212,10 @@ def main(verbose: bool=True) -> None:
             vals[0] == val2 and vals[1] == val1
         ):
             print(f'\nBot {key} compared {val1} and {val2} microchips.')
+
+    # Answer, part 2:
+    val = prod(int(outputs[i]) for i in ('0', '1', '2'))
+    print(f'\nMultiplied value of outputs 0, 1, 2:  {val:,}')
 
 
 if __name__ == '__main__':
