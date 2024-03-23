@@ -24,6 +24,12 @@ from pathlib import Path
 
 # Types:
 class Facility:
+    '''
+    This is like a singleton as it's using a class-level variable.
+
+    Only need one data structure for challenge, so not bothering with setting
+    up instances.
+    '''
     floors = {4: {'e': False, 'mcs': [], 'rtgs': []},
               3: {'e': False, 'mcs': [], 'rtgs': []},
               2: {'e': False, 'mcs': [], 'rtgs': []},
@@ -38,6 +44,15 @@ class Facility:
             output += f'{floor}:  {e} Microchips - {mcs}, RTGs - {rtgs}\n'
 
         return output
+
+    def empty(self, level: int) -> bool:
+        return not self.floors[level]['mcs'] and not self.floors[level]['rts']
+
+    def set(self, mc_level: int, rtg_level: int=-1) -> set:
+        if rtg_level == -1:
+            rtg_level = mc_level
+
+        return set(self.floors[mc_level]['mcs']) & set(self.floors[rtg_level]['rtgs'])
 
 
 # Module:
@@ -120,34 +135,66 @@ def parse(line: str, facility: Facility, *, verbose: bool=True) -> None:
             raise ValueError(f'Unexpected line:  {line}')
 
 
-def process(facility: Facility) -> None:
+def move(facility: Facility, target: str, device: str, current: int, new: int) -> None:
+    if device == 'both':
+        devices = ('mcs', 'rtgs')
+    elif device == 'mcs':
+        devices = ('mcs',)
+    elif device == 'rtgs':
+        devices = ('rtgs',)
+    else:
+        raise ValueError(f'Expected mcs|rtgs|both, got:  {device}')
+
+    for device in devices:
+        facility.floors[current][device].remove(target)
+        facility.floors[new][device].append(target)
+
+    facility.floors[current]['e'] = False
+    facility.floors[new]['e'] = True
+
+
+def process(facility: Facility, verbose: bool=True) -> int:
     '''
     Algorithm:
-    * Find MC/RTG pair on lowest floor and move to 4th floor
+    1) Find MC/RTG pair on lowest floor or 2nd to lowest or ...
+        a) If no stand-alone MCs on next floor,
+        b) And, no unpaired RTGs on current floor, move pair up
+    2) Find RTGs on 2nd to lowest floor
+        a) If matching MC on lowest floor, move MC up
+    ================================================================
     * Repeat until everything on 4th floor
     '''
     steps = 0
     bottom = 1
 
     while bottom < 4:
-        if pairs := set(facility.floors[bottom]['mcs']) & set(facility.floors[bottom]['rtgs']):
-            pair = True
-        else:
-            for floor in range(bottom, 5):
-                if pairs := set(facility.floors[bottom]['mcs']) & set(facility.floors[floor]['rtgs']):
-                    pair = False
-                    break
-                raise RuntimeError('Error in algorithm - no match found.')
+        matched_case = False
+        # Use case 1
+        ### Need to implement 1b
+        for floor in range(bottom, 4):
+            if (pairs := facility.set(floor)) and not facility.floors[floor + 1]['mcs']:
+                target = pairs.pop()
+                move(facility, target, 'both', floor, floor + 1)
+                steps += 1
+                matched_case = True
+                if verbose:
+                    print(f'Current State:\n{facility}')
+            # Use case 2
+            elif pairs := facility.set(floor, floor + 1):
+                target = pairs.pop()
+                move(facility, target, 'mcs', floor, floor + 1)
+                steps += 1
+                matched_case = True
+                if verbose:
+                    print(f'Current State:\n{facility}')
 
-        # Next floor can't have mcs or if mc present, must be paired with its RTG:
-        if pair and not facility.floors[bottom + 1]['mcs']:
-            steps += 1
-            target = pairs.pop()
-            for device in ('mcs', 'rtgs'):
-                facility.floors[bottom][device].remove(target)
-                facility.floors[bottom + 1][device].append(target)
-        else:
-            ...
+        if not matched_case:
+            raise RuntimeError('Error in algorithm - no match found.')
+
+        if facility.empty(bottom):
+            bottom += 1
+
+    return steps
 
 
 def main() -> None:
@@ -158,6 +205,9 @@ def main() -> None:
             parse(line, facility)
 
     print(f'\nStart:\n{facility}')
+    steps = process(facility)
+
+    print(f'\nTook {steps:,} steps.')
 
 
 if __name__ == '__main__':
