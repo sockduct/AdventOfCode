@@ -48,9 +48,15 @@ class Facility:
     def empty(self, level: int) -> bool:
         return not self.floors[level]['mcs'] and not self.floors[level]['rts']
 
-    def set(self, mc_level: int, rtg_level: int=-1) -> set:
+    def set(self, mc_level: int, rtg_level: int=-1, *, bounds=True) -> set:
         if rtg_level == -1:
             rtg_level = mc_level
+
+        if not 1 <= mc_level <= 4 or not 1 <= rtg_level <= 4:
+            if bounds:
+                raise IndexError(f'Expect floor from 1 - 4, got ({mc_level}, {rtg_level}).')
+            else:
+                return None
 
         return set(self.floors[mc_level]['mcs']) & set(self.floors[rtg_level]['rtgs'])
 
@@ -155,24 +161,26 @@ def move(facility: Facility, target: str, device: str, current: int, new: int) -
 
 def process(facility: Facility, verbose: bool=True) -> int:
     '''
-    Algorithm:
+    Algorithm - until everything on 4th floor:
     1) Find MC/RTG pair on lowest floor or 2nd to lowest or ...
         a) If no stand-alone MCs on next floor,
         b) And, no unpaired RTGs on current floor, move pair up
-    2) Find RTGs on 2nd to lowest floor
+    2) Find RTGs on 2nd to lowest floor or 3rd to lowest or ...
         a) If matching MC on lowest floor, move MC up
-    ================================================================
-    * Repeat until everything on 4th floor
     '''
     steps = 0
     bottom = 1
 
+    ### Need way to deal with elevator
     while bottom < 4:
         matched_case = False
-        # Use case 1
-        ### Need to implement 1b
         for floor in range(bottom, 4):
-            if (pairs := facility.set(floor)) and not facility.floors[floor + 1]['mcs']:
+            # Use case 1
+            if (
+                (pairs := facility.set(floor)) and
+                not facility.floors[floor + 1]['mcs'] and
+                not (set(facility.floors[floor]['rtgs']) - pairs)
+            ):
                 target = pairs.pop()
                 move(facility, target, 'both', floor, floor + 1)
                 steps += 1
@@ -180,7 +188,10 @@ def process(facility: Facility, verbose: bool=True) -> int:
                 if verbose:
                     print(f'Current State:\n{facility}')
             # Use case 2
-            elif pairs := facility.set(floor, floor + 1):
+            elif (
+                (pairs := facility.set(floor, floor + 1)) or
+                (pairs := facility.set(floor, floor + 2, bounds=False))
+            ):
                 target = pairs.pop()
                 move(facility, target, 'mcs', floor, floor + 1)
                 steps += 1
