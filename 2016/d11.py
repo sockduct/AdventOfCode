@@ -10,6 +10,8 @@ Collect all RTGs and microchips and bring to 4th floor
     * Elevator requires at least 1 RTG/mc to work
 * mc can't be on floor with another RTG (unless has its own RTG) or gets fried
 * puzzle input has locations of each item
+
+Additional notes...
 '''
 
 
