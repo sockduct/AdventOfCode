@@ -11,7 +11,7 @@ Collect all RTGs and microchips and bring to 4th floor
 * mc can't be on floor with another RTG (unless has its own RTG) or gets fried
 * puzzle input has locations of each item
 
-Additional notes...
+Extra comment with additional notes...
 '''
 
 
